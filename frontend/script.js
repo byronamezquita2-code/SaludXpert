@@ -115,17 +115,50 @@ function mostrarResultado(resultado) {
 }
 
 // ===== CONFIRMAR / DESCARTAR =====
-document.getElementById('btn-confirmar').addEventListener('click', () => {
-  alert('Diagnóstico confirmado y registrado.');
-  reiniciarConsulta();
+document.getElementById('btn-confirmar').addEventListener('click', async () => {
+  if (!ultimoResultado || !ultimoResultado.consulta_id) {
+    alert('No se encontró la consulta a confirmar.');
+    return;
+  }
+
+  try {
+    await fetch(`${API_URL}/api/consultas/${ultimoResultado.consulta_id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ decision_medico: 'confirmado' })
+    });
+    alert('Diagnóstico confirmado y registrado.');
+    reiniciarConsulta();
+  } catch (error) {
+    console.error('Error al confirmar:', error);
+    alert('Error al guardar la confirmación.');
+  }
 });
 
-document.getElementById('btn-descartar').addEventListener('click', () => {
-  const diagnosticoDefinitivo = prompt('Ingrese el diagnóstico definitivo:');
-  if (diagnosticoDefinitivo) {
-    alert('Sugerencia descartada. Diagnóstico registrado: ' + diagnosticoDefinitivo);
+document.getElementById('btn-descartar').addEventListener('click', async () => {
+  if (!ultimoResultado || !ultimoResultado.consulta_id) {
+    alert('No se encontró la consulta a descartar.');
+    return;
   }
-  reiniciarConsulta();
+
+  const diagnosticoDefinitivo = prompt('Ingrese el diagnóstico definitivo:');
+  if (!diagnosticoDefinitivo) return;
+
+  try {
+    await fetch(`${API_URL}/api/consultas/${ultimoResultado.consulta_id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        decision_medico: 'descartado',
+        diagnostico_definitivo: diagnosticoDefinitivo
+      })
+    });
+    alert('Sugerencia descartada. Diagnóstico registrado: ' + diagnosticoDefinitivo);
+    reiniciarConsulta();
+  } catch (error) {
+    console.error('Error al descartar:', error);
+    alert('Error al guardar el descarte.');
+  }
 });
 
 document.getElementById('btn-nueva-consulta').addEventListener('click', reiniciarConsulta);
@@ -159,16 +192,21 @@ async function cargarHistorial() {
     }
 
     lista.innerHTML = '';
-    
-consultas.forEach(c => {
+    consultas.forEach(c => {
   const fecha = new Date(c.fecha + 'Z');
   const hora = fecha.toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Guatemala' });
   const diagnosticoPrincipal = c.resultado?.diagnosticos?.[0];
 
+  const estadoBadge = c.decision_medico === 'confirmado'
+    ? '<span style="color:#2E7D32; font-weight:600;">✓ Confirmado</span>'
+    : c.decision_medico === 'descartado'
+    ? '<span style="color:#C62828; font-weight:600;">✗ Descartado</span>'
+    : '<span style="color:#999;">Pendiente</span>';
+
   const div = document.createElement('div');
   div.className = 'historial-card';
   div.innerHTML = `
-    <div class="historial-hora">${hora}</div>
+    <div class="historial-hora">${hora} — ${estadoBadge}</div>
     <div class="historial-diagnostico">
       ${diagnosticoPrincipal ? diagnosticoPrincipal.enfermedad + ' — ' + diagnosticoPrincipal.confianza + '%' : 'Sin diagnóstico'}
     </div>

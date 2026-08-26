@@ -98,6 +98,28 @@ app.get('/api/consultas', async (req, res) => {
   }
 });
 
+// Ruta: actualizar la decisión del médico sobre una consulta
+app.patch('/api/consultas/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { decision_medico, diagnostico_definitivo } = req.body;
+
+    const { data, error } = await supabase
+      .from('consultas')
+      .update({
+        decision_medico: decision_medico,
+        diagnostico_definitivo: diagnostico_definitivo || null
+      })
+      .eq('id', id)
+      .select();
+
+    if (error) throw error;
+    res.json(data[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });
