@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SaludXpert — Centro de Salud de Salcajá</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- PANTALLA: LOGIN -->
+  <div id="pantalla-login" class="pantalla activa">
+    <div class="login-card">
+      <div class="logo">SaludXpert</div>
+      <p class="subtitulo">Centro de Salud de Salcajá</p>
+
+      <form id="form-login">
+        <label for="correo">Correo electrónico</label>
+        <input type="email" id="correo" placeholder="usuario@salud.gob.gt" required>
+
+        <label for="contrasena">Contraseña</label>
+        <input type="password" id="contrasena" placeholder="••••••••" required>
+
+        <button type="submit" class="btn-primario">Iniciar Sesión →</button>
+      </form>
+
+      <p id="mensaje-error" class="mensaje-error"></p>
+    </div>
+  </div>
+
+  <!-- PANTALLA: CAPTURA DE SÍNTOMAS -->
+  <div id="pantalla-sintomas" class="pantalla">
+    <div class="contenedor-sintomas">
+      <div class="navbar">
+        <span class="navbar-titulo">Nueva Consulta</span>
+        <span id="contador-sintomas" class="badge">0 síntomas</span>
+      </div>
+
+      <div class="categoria">
+        <h3>Respiratorios</h3>
+        <div class="botones-sintomas" id="cat-respiratorio"></div>
+      </div>
+
+      <div class="categoria">
+        <h3>Gastrointestinales</h3>
+        <div class="botones-sintomas" id="cat-gastrointestinal"></div>
+      </div>
+
+      <div class="categoria">
+        <h3>Generales</h3>
+        <div class="botones-sintomas" id="cat-general"></div>
+      </div>
+
+      <button id="btn-analizar" class="btn-primario">Analizar Síntomas →</button>
+    </div>
+  </div>
+
+  <!-- PANTALLA: RESULTADO -->
+  <div id="pantalla-resultado" class="pantalla">
+    <div class="contenedor-resultado">
+      <div id="banner-advertencia" class="banner-advertencia" style="display:none;">
+        ⚠ Confianza insuficiente — Se recomienda ampliar la evaluación clínica.
+      </div>
+
+      <div id="resultado-principal" class="resultado-card"></div>
+      <div id="resultados-alternativos"></div>
+
+      <div class="acciones">
+        <button id="btn-confirmar" class="btn-confirmar">Confirmar Diagnóstico</button>
+        <button id="btn-descartar" class="btn-descartar">Descartar Sugerencia</button>
+      </div>
+
+      <button id="btn-nueva-consulta" class="btn-secundario">Nueva Consulta</button>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

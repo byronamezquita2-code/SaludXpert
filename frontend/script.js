@@ -1,0 +1,138 @@
+const API_URL = 'http://localhost:3000';
+
+let sintomasSeleccionados = [];
+let listaSintomas = [];
+let ultimoResultado = null;
+
+// ===== NAVEGACIÓN ENTRE PANTALLAS =====
+function mostrarPantalla(id) {
+  document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('activa'));
+  document.getElementById(id).classList.add('activa');
+}
+
+// ===== LOGIN =====
+document.getElementById('form-login').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  // Por ahora simulamos el login (luego conectamos con Supabase Auth)
+  mostrarPantalla('pantalla-sintomas');
+  cargarSintomas();
+});
+
+// ===== CARGAR SÍNTOMAS DESDE LA API =====
+async function cargarSintomas() {
+  try {
+    const response = await fetch(`${API_URL}/api/sintomas`);
+    listaSintomas = await response.json();
+
+    const categorias = {
+      respiratorio: document.getElementById('cat-respiratorio'),
+      gastrointestinal: document.getElementById('cat-gastrointestinal'),
+      general: document.getElementById('cat-general')
+    };
+
+    // Limpiar contenedores
+    Object.values(categorias).forEach(c => c.innerHTML = '');
+
+    listaSintomas.forEach(sintoma => {
+      const btn = document.createElement('button');
+      btn.className = 'btn-sintoma';
+      btn.textContent = sintoma.nombre;
+      btn.dataset.nombre = sintoma.nombre;
+      btn.addEventListener('click', () => toggleSintoma(btn, sintoma.nombre));
+
+      if (categorias[sintoma.categoria]) {
+        categorias[sintoma.categoria].appendChild(btn);
+      }
+    });
+  } catch (error) {
+    console.error('Error cargando síntomas:', error);
+    alert('No se pudo conectar con el servidor. Verifica que la API esté corriendo.');
+  }
+}
+
+// ===== SELECCIONAR/DESELECCIONAR SÍNTOMA =====
+function toggleSintoma(btn, nombre) {
+  if (sintomasSeleccionados.includes(nombre)) {
+    sintomasSeleccionados = sintomasSeleccionados.filter(s => s !== nombre);
+    btn.classList.remove('seleccionado');
+  } else {
+    sintomasSeleccionados.push(nombre);
+    btn.classList.add('seleccionado');
+  }
+  document.getElementById('contador-sintomas').textContent = `${sintomasSeleccionados.length} síntomas`;
+}
+
+// ===== ANALIZAR SÍNTOMAS =====
+document.getElementById('btn-analizar').addEventListener('click', async () => {
+  if (sintomasSeleccionados.length === 0) {
+    alert('Debe seleccionar al menos un síntoma antes de continuar.');
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_URL}/api/diagnosticar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sintomas: sintomasSeleccionados })
+    });
+
+    const resultado = await response.json();
+    ultimoResultado = resultado;
+    mostrarResultado(resultado);
+    mostrarPantalla('pantalla-resultado');
+  } catch (error) {
+    console.error('Error al diagnosticar:', error);
+    alert('Error al procesar el diagnóstico. Intente nuevamente.');
+  }
+});
+
+// ===== MOSTRAR RESULTADO EN PANTALLA =====
+function mostrarResultado(resultado) {
+  const banner = document.getElementById('banner-advertencia');
+  banner.style.display = resultado.confianza_suficiente ? 'none' : 'block';
+
+  const diagnosticos = resultado.diagnosticos;
+  const principal = diagnosticos[0];
+
+  const principalDiv = document.getElementById('resultado-principal');
+  principalDiv.innerHTML = `
+    <div class="nombre-enfermedad">${principal.enfermedad}</div>
+    <div class="barra-confianza">
+      <div class="barra-confianza-fill" style="width:${principal.confianza}%">
+        ${principal.confianza}%
+      </div>
+    </div>
+  `;
+
+  const alternativosDiv = document.getElementById('resultados-alternativos');
+  alternativosDiv.innerHTML = '';
+  diagnosticos.slice(1).forEach(d => {
+    const div = document.createElement('div');
+    div.className = 'alt-card';
+    div.innerHTML = `<span>${d.enfermedad}</span><span>${d.confianza}%</span>`;
+    alternativosDiv.appendChild(div);
+  });
+}
+
+// ===== CONFIRMAR / DESCARTAR =====
+document.getElementById('btn-confirmar').addEventListener('click', () => {
+  alert('Diagnóstico confirmado y registrado.');
+  reiniciarConsulta();
+});
+
+document.getElementById('btn-descartar').addEventListener('click', () => {
+  const diagnosticoDefinitivo = prompt('Ingrese el diagnóstico definitivo:');
+  if (diagnosticoDefinitivo) {
+    alert('Sugerencia descartada. Diagnóstico registrado: ' + diagnosticoDefinitivo);
+  }
+  reiniciarConsulta();
+});
+
+document.getElementById('btn-nueva-consulta').addEventListener('click', reiniciarConsulta);
+
+function reiniciarConsulta() {
+  sintomasSeleccionados = [];
+  document.querySelectorAll('.btn-sintoma').forEach(b => b.classList.remove('seleccionado'));
+  document.getElementById('contador-sintomas').textContent = '0 síntomas';
+  mostrarPantalla('pantalla-sintomas');
+}
