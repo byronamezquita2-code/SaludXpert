@@ -1,3 +1,4 @@
+const axios = require('axios');
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
@@ -39,6 +40,46 @@ app.get('/api/enfermedades', async (req, res) => {
     res.json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Ruta: enviar síntomas al motor de inferencia  y obtener diagnóstico
+app.post('/api/diagnosticar', async (req, res) => {
+  try {
+    const { sintomas, usuario_id } = req.body;
+
+    if (!sintomas || sintomas.length === 0) {
+      return res.status(400).json({ error: 'Debe proporcionar al menos un síntoma' });
+    }
+
+    // Llamar al motor de inferencia en Flask
+    const response = await axios.post('http://localhost:5000/api/diagnosticar', {
+      sintomas: sintomas
+    });
+
+    const resultado = response.data;
+
+    // Guardar la consulta en la base de datos
+    const { data, error } = await supabase.from('consultas').insert([
+      {
+        usuario_id: usuario_id || null,
+        sintomas_ingresados: sintomas,
+        resultado: resultado
+      }
+    ]).select();
+
+    if (error) {
+      console.error('Error guardando consulta:', error.message);
+    }
+
+    res.json({
+      ...resultado,
+      consulta_id: data ? data[0].id : null
+    });
+
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).json({ error: 'Error al procesar el diagnóstico' });
   }
 });
 
