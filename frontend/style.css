@@ -322,3 +322,15 @@ input:focus {
   color: #999;
   font-size: 14px;
 }
+
+.link-recuperar {
+  margin-top: 16px;
+  font-size: 13px;
+  color: #1565C0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.link-recuperar:hover {
+  color: #0D47A1;
+}

@@ -1,3 +1,6 @@
+const SUPABASE_URL = 'https://bpisojfqhsaisfvnwhpr.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_I0o7hKokgpc5hyIcBZeRQg_nLHEm60L';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const API_URL = 'http://localhost:3000';
 
 let sintomasSeleccionados = [];
@@ -13,7 +16,24 @@ function mostrarPantalla(id) {
 // ===== LOGIN =====
 document.getElementById('form-login').addEventListener('submit', async (e) => {
   e.preventDefault();
-  // Por ahora simulamos el login (luego conectamos con Supabase Auth)
+
+  const correo = document.getElementById('correo').value;
+  const contrasena = document.getElementById('contrasena').value;
+  const mensajeError = document.getElementById('mensaje-error');
+  mensajeError.textContent = '';
+
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email: correo,
+    password: contrasena
+  });
+
+  if (error) {
+    mensajeError.textContent = 'Correo o contraseña incorrectos.';
+    console.error('Error de login:', error.message);
+    return;
+  }
+
+  console.log('Usuario autenticado:', data.user.email);
   mostrarPantalla('pantalla-sintomas');
   cargarSintomas();
 });
@@ -220,3 +240,18 @@ async function cargarHistorial() {
     lista.innerHTML = '<p class="estado-vacio">Error al cargar el historial.</p>';
   }
 }
+
+// ===== RECUPERAR CONTRASEÑA =====
+document.getElementById('link-recuperar').addEventListener('click', async () => {
+  const correo = prompt('Ingresa tu correo electrónico para recuperar tu contraseña:');
+
+  if (!correo) return;
+
+  const { error } = await supabaseClient.auth.resetPasswordForEmail(correo);
+
+  if (error) {
+    alert('Error al enviar el correo de recuperación: ' + error.message);
+  } else {
+    alert('Se ha enviado un enlace de recuperación a tu correo electrónico.');
+  }
+});
