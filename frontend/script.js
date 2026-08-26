@@ -136,3 +136,49 @@ function reiniciarConsulta() {
   document.getElementById('contador-sintomas').textContent = '0 síntomas';
   mostrarPantalla('pantalla-sintomas');
 }
+
+// ===== HISTORIAL DEL TURNO =====
+document.getElementById('btn-ver-historial').addEventListener('click', async () => {
+  await cargarHistorial();
+  mostrarPantalla('pantalla-historial');
+});
+
+document.getElementById('btn-ir-consulta').addEventListener('click', reiniciarConsulta);
+
+async function cargarHistorial() {
+  const lista = document.getElementById('lista-historial');
+  lista.innerHTML = '<p class="estado-vacio">Cargando...</p>';
+
+  try {
+    const response = await fetch(`${API_URL}/api/consultas`);
+    const consultas = await response.json();
+
+    if (consultas.length === 0) {
+      lista.innerHTML = '<p class="estado-vacio">No hay consultas registradas en este turno.</p>';
+      return;
+    }
+
+    lista.innerHTML = '';
+    
+consultas.forEach(c => {
+  const fecha = new Date(c.fecha + 'Z');
+  const hora = fecha.toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Guatemala' });
+  const diagnosticoPrincipal = c.resultado?.diagnosticos?.[0];
+
+  const div = document.createElement('div');
+  div.className = 'historial-card';
+  div.innerHTML = `
+    <div class="historial-hora">${hora}</div>
+    <div class="historial-diagnostico">
+      ${diagnosticoPrincipal ? diagnosticoPrincipal.enfermedad + ' — ' + diagnosticoPrincipal.confianza + '%' : 'Sin diagnóstico'}
+    </div>
+    <div class="historial-sintomas">Síntomas: ${c.sintomas_ingresados.join(', ')}</div>
+  `;
+  lista.appendChild(div);
+});
+
+  } catch (error) {
+    console.error('Error cargando historial:', error);
+    lista.innerHTML = '<p class="estado-vacio">Error al cargar el historial.</p>';
+  }
+}

@@ -83,6 +83,21 @@ app.post('/api/diagnosticar', async (req, res) => {
   }
 });
 
+// Ruta: obtener historial de consultas
+app.get('/api/consultas', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('consultas')
+      .select('*')
+      .order('fecha', { ascending: false });
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });
