@@ -255,3 +255,93 @@ document.getElementById('link-recuperar').addEventListener('click', async () => 
     alert('Se ha enviado un enlace de recuperación a tu correo electrónico.');
   }
 });
+
+// ===== PANEL DE ADMINISTRACIÓN =====
+document.getElementById('btn-ir-admin').addEventListener('click', async () => {
+  await cargarPanelAdmin();
+  mostrarPantalla('pantalla-admin');
+});
+
+document.getElementById('btn-agregar-usuario').addEventListener('click', async () => {
+  const nombre = prompt('Nombre completo del usuario:');
+  if (!nombre) return;
+
+  const correo = prompt('Correo electrónico:');
+  if (!correo) return;
+
+  const rol = prompt('Rol (medico / enfermeria / administrador):');
+  if (!rol || !['medico', 'enfermeria', 'administrador'].includes(rol)) {
+    alert('Rol inválido. Debe ser: medico, enfermeria o administrador.');
+    return;
+  }
+
+  try {
+    await fetch(`${API_URL}/api/usuarios`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombre, correo, rol })
+    });
+    alert('Usuario agregado correctamente. Recuerda crear también su acceso en Supabase Auth.');
+    await cargarPanelAdmin();
+  } catch (error) {
+    console.error('Error al agregar usuario:', error);
+    alert('Error al agregar el usuario.');
+  }
+});
+
+async function cargarPanelAdmin() {
+  try {
+    // Cargar usuarios
+    const responseUsuarios = await fetch(`${API_URL}/api/usuarios`);
+    const usuarios = await responseUsuarios.json();
+
+    const activos = usuarios.filter(u => u.activo).length;
+    document.getElementById('stat-usuarios-activos').textContent = activos;
+
+    const tbody = document.getElementById('tabla-usuarios-body');
+    tbody.innerHTML = '';
+
+    usuarios.forEach(u => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${u.nombre}</td>
+        <td>${u.correo}</td>
+        <td><span class="rol-badge rol-${u.rol}">${u.rol}</span></td>
+        <td>${u.activo ? 'Activo' : 'Inactivo'}</td>
+        <td>
+          <button class="btn-toggle ${u.activo ? 'desactivar' : 'activar'}" data-id="${u.id}" data-activo="${u.activo}">
+            ${u.activo ? 'Desactivar' : 'Activar'}
+          </button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    // Agregar eventos a los botones de activar/desactivar
+    document.querySelectorAll('.btn-toggle').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        const activoActual = btn.dataset.activo === 'true';
+
+        await fetch(`${API_URL}/api/usuarios/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ activo: !activoActual })
+        });
+
+        await cargarPanelAdmin();
+      });
+    });
+
+    // Cargar estadística de consultas hoy
+    const responseConsultas = await fetch(`${API_URL}/api/consultas`);
+    const consultas = await responseConsultas.json();
+
+    const hoy = new Date().toISOString().split('T')[0];
+    const consultasHoy = consultas.filter(c => c.fecha.startsWith(hoy)).length;
+    document.getElementById('stat-consultas-hoy').textContent = consultasHoy;
+
+  } catch (error) {
+    console.error('Error cargando panel admin:', error);
+  }
+}

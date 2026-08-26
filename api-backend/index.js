@@ -120,6 +120,57 @@ app.patch('/api/consultas/:id', async (req, res) => {
   }
 });
 
+// Ruta: obtener todos los usuarios
+app.get('/api/usuarios', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('usuarios')
+      .select('*')
+      .order('creado_en', { ascending: false });
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Ruta: crear un nuevo usuario
+app.post('/api/usuarios', async (req, res) => {
+  try {
+    const { nombre, correo, rol } = req.body;
+
+    const { data, error } = await supabase
+      .from('usuarios')
+      .insert([{ nombre, correo, rol, activo: true }])
+      .select();
+
+    if (error) throw error;
+    res.json(data[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Ruta: activar/desactivar un usuario
+app.patch('/api/usuarios/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { activo } = req.body;
+
+    const { data, error } = await supabase
+      .from('usuarios')
+      .update({ activo })
+      .eq('id', id)
+      .select();
+
+    if (error) throw error;
+    res.json(data[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });

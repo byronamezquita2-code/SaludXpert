@@ -82,8 +82,43 @@
       <div class="navbar">
         <span class="navbar-titulo">Historial del Turno</span>
         <span id="btn-ir-consulta" class="badge" style="cursor:pointer;">+ Nueva Consulta</span>
+        <span id="btn-ir-admin" class="badge" style="cursor:pointer; margin-left:8px;">⚙ Administración</span>
       </div>
       <div id="lista-historial" class="lista-historial"></div>
+    </div>
+  </div>
+
+    <!-- PANTALLA: PANEL DE ADMINISTRACIÓN -->
+  <div id="pantalla-admin" class="pantalla">
+    <div class="contenedor-admin">
+      <div class="navbar">
+        <span class="navbar-titulo">Panel de Administración</span>
+        <span id="btn-agregar-usuario" class="badge" style="cursor:pointer;">+ Agregar Usuario</span>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-label">Usuarios Activos</div>
+          <div class="stat-value" id="stat-usuarios-activos">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Consultas Hoy</div>
+          <div class="stat-value" id="stat-consultas-hoy">0</div>
+        </div>
+      </div>
+
+      <table class="tabla-usuarios">
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Correo</th>
+            <th>Rol</th>
+            <th>Estado</th>
+            <th>Acción</th>
+          </tr>
+        </thead>
+        <tbody id="tabla-usuarios-body"></tbody>
+      </table>
     </div>
   </div>
 
