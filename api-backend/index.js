@@ -53,7 +53,8 @@ app.post('/api/diagnosticar', async (req, res) => {
     }
 
     // Llamar al motor de inferencia en Flask
-    const response = await axios.post('http://localhost:5000/api/diagnosticar', {
+      const MOTOR_URL = process.env.MOTOR_URL || 'http://localhost:5000';
+      const response = await axios.post(`${MOTOR_URL}/api/diagnosticar`, {
       sintomas: sintomas
     });
 
@@ -171,6 +172,6 @@ app.patch('/api/usuarios/:id', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Servidor corriendo en puerto ${PORT}`);
 });
