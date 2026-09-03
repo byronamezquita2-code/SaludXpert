@@ -1,7 +1,7 @@
 const SUPABASE_URL = 'https://bpisojfqhsaisfvnwhpr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_I0o7hKokgpc5hyIcBZeRQg_nLHEm60L';
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-const API_URL = 'http://localhost:3000';
+const API_URL = 'https://saludxpert-api.onrender.com';
 
 let sintomasSeleccionados = [];
 let listaSintomas = [];
