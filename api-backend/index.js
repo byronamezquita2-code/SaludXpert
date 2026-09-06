@@ -15,6 +15,7 @@ app.use(express.json());
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
+const supabaseAdmin = createClient(supabaseUrl, process.env.SUPABASE_SERVICE_KEY);
 
 // Ruta de prueba
 app.get('/', (req, res) => {
@@ -137,19 +138,34 @@ app.get('/api/usuarios', async (req, res) => {
   }
 });
 
-// Ruta: crear un nuevo usuario
+// Ruta: crear un nuevo usuario e invitarlo por correo
 app.post('/api/usuarios', async (req, res) => {
   try {
     const { nombre, correo, rol } = req.body;
 
+    // 1. Invitar al usuario mediante Supabase Auth (le llega correo automático)
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.inviteUserByEmail(correo, {
+      data: { nombre, rol }
+    });
+
+    if (authError) throw authError;
+
+    // 2. Guardar el registro en la tabla usuarios con su auth_id
     const { data, error } = await supabase
       .from('usuarios')
-      .insert([{ nombre, correo, rol, activo: true }])
+      .insert([{
+        nombre,
+        correo,
+        rol,
+        activo: true,
+        auth_id: authData.user.id
+      }])
       .select();
 
     if (error) throw error;
     res.json(data[0]);
   } catch (error) {
+    console.error('Error al invitar usuario:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
