@@ -1,47 +1,90 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  font-family: 'Segoe UI', Arial, sans-serif;
+/* ============================================
+   SaludXpert — Sistema Tokens
+   Color: teal clínico profundo + crema cálido
+   Type: IBM Plex Sans
+   ============================================ */
+
+:root {
+  --teal-900: #0B3D3A;
+  --teal-700: #146B63;
+  --teal-600: #1B7F76;
+  --teal-500: #2A9D91;
+  --teal-100: #E3EFED;
+  --cream: #FAF7F0;
+  --card: #FFFFFF;
+  --amber: #C1852E;
+  --amber-bg: #FBF0DD;
+  --red: #A83E2C;
+  --red-bg: #FBEAE6;
+  --green: #2E7D5B;
+  --green-bg: #E6F2EC;
+  --ink: #1E2926;
+  --ink-soft: #5D6E6A;
+  --ink-faint: #94A29E;
+  --border: #E3DFD3;
+  --radius: 10px;
+  --radius-lg: 14px;
 }
 
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
 body {
-  background: #F5F7FA;
-  color: #212121;
+  font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--cream);
+  background-image:
+    radial-gradient(circle at 100% 0%, rgba(27, 127, 118, 0.06) 0%, transparent 45%),
+    radial-gradient(circle at 0% 100%, rgba(193, 133, 46, 0.05) 0%, transparent 45%);
+  background-attachment: fixed;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
 }
 
 .pantalla {
   display: none;
   min-height: 100vh;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
+  padding: 48px 20px;
 }
 
-.pantalla.activa {
-  display: flex;
-}
+.pantalla.activa { display: flex; }
 
-/* LOGIN */
+button { font-family: inherit; cursor: pointer; }
+input { font-family: inherit; }
+
+/* ============ LOGIN ============ */
 .login-card {
-  background: #FFFFFF;
-  border-radius: 16px;
-  padding: 40px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 44px 40px;
   width: 380px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  margin-top: 8vh;
+  box-shadow: 0 1px 2px rgba(11, 61, 58, 0.04), 0 12px 32px rgba(11, 61, 58, 0.07);
   text-align: center;
 }
 
-.logo {
-  font-size: 28px;
-  font-weight: bold;
-  color: #1565C0;
+.marca {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
   margin-bottom: 4px;
+}
+
+.marca-icono { color: var(--teal-700); flex-shrink: 0; }
+
+.marca-texto {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--teal-900);
+  letter-spacing: -0.02em;
 }
 
 .subtitulo {
   font-size: 13px;
-  color: #666;
-  margin-bottom: 24px;
+  color: var(--ink-soft);
+  margin-bottom: 28px;
 }
 
 label {
@@ -50,95 +93,123 @@ label {
   font-size: 13px;
   font-weight: 600;
   margin-bottom: 6px;
-  margin-top: 16px;
-  color: #333;
+  margin-top: 18px;
+  color: var(--ink);
 }
 
 input {
   width: 100%;
-  padding: 12px 14px;
-  border: 1.5px solid #E0E0E0;
-  border-radius: 10px;
+  padding: 13px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
   font-size: 15px;
-  background: #FAFAFA;
+  background: var(--cream);
+  color: var(--ink);
+  transition: border-color 0.15s;
 }
 
 input:focus {
   outline: none;
-  border-color: #1565C0;
+  border-color: var(--teal-600);
   background: #fff;
 }
+
+input::placeholder { color: var(--ink-faint); }
 
 .btn-primario {
   width: 100%;
   padding: 14px;
-  margin-top: 24px;
-  background: #1565C0;
+  margin-top: 26px;
+  background: var(--teal-700);
   color: white;
   border: none;
-  border-radius: 10px;
-  font-size: 16px;
+  border-radius: var(--radius);
+  font-size: 15px;
   font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.15s;
 }
 
-.btn-primario:hover {
-  background: #0D47A1;
+.btn-primario:hover { background: var(--teal-900); }
+
+.link-recuperar {
+  margin-top: 18px;
+  font-size: 13px;
+  color: var(--teal-700);
+  cursor: pointer;
+  font-weight: 500;
 }
+
+.link-recuperar:hover { color: var(--teal-900); text-decoration: underline; }
 
 .mensaje-error {
-  color: #C62828;
+  color: var(--red);
   font-size: 13px;
-  margin-top: 12px;
+  margin-top: 14px;
   min-height: 18px;
+  font-weight: 500;
 }
 
-/* NAVBAR */
+/* ============ NAVBAR (compartido) ============ */
 .navbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 24px;
-  background: #FFFFFF;
-  border-bottom: 2px solid #E0E0E0;
+  padding: 18px 26px;
+  background: var(--teal-900);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.navbar-marca {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
 }
 
 .navbar-titulo {
-  font-size: 18px;
-  font-weight: 700;
-  color: #1565C0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: -0.01em;
 }
+
+.navbar-acciones { display: flex; gap: 10px; }
 
 .badge {
-  background: #E3F2FD;
-  color: #1565C0;
-  padding: 6px 14px;
+  background: rgba(255,255,255,0.14);
+  color: #fff;
+  padding: 7px 14px;
   border-radius: 20px;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
-/* CAPTURA DE SÍNTOMAS */
+.badge-accion { cursor: pointer; transition: background 0.15s; }
+.badge-accion:hover { background: rgba(255,255,255,0.24); }
+.badge-admin { background: rgba(193, 133, 46, 0.35); }
+
+/* ============ CAPTURA DE SÍNTOMAS ============ */
 .contenedor-sintomas {
   width: 100%;
-  max-width: 700px;
-  background: #fff;
-  border-radius: 16px;
+  max-width: 720px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  box-shadow: 0 1px 2px rgba(11, 61, 58, 0.04), 0 12px 32px rgba(11, 61, 58, 0.06);
 }
 
-.categoria {
-  padding: 20px 24px;
-}
+.categoria { padding: 22px 26px; border-bottom: 1px solid var(--border); }
+.categoria:last-of-type { border-bottom: none; }
 
 .categoria h3 {
-  font-size: 14px;
-  color: #555;
-  margin-bottom: 12px;
+  font-size: 12.5px;
+  color: var(--teal-700);
+  margin-bottom: 14px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.06em;
+  font-weight: 700;
 }
 
 .botones-sintomas {
@@ -148,269 +219,287 @@ input:focus {
 }
 
 .btn-sintoma {
-  padding: 14px 18px;
-  border: 2px solid #E0E0E0;
-  border-radius: 12px;
-  background: #FAFAFA;
+  padding: 13px 18px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--cream);
+  color: var(--ink);
   font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-  min-height: 56px;
+  font-weight: 500;
+  transition: all 0.15s;
+  min-height: 48px;
 }
 
-.btn-sintoma:hover {
-  border-color: #1565C0;
-}
+.btn-sintoma:hover { border-color: var(--teal-500); }
 
 .btn-sintoma.seleccionado {
-  background: #1565C0;
+  background: var(--teal-700);
   color: white;
-  border-color: #1565C0;
-}
-
-#btn-analizar {
-  margin: 24px;
-  width: calc(100% - 48px);
-}
-
-/* RESULTADO */
-.contenedor-resultado {
-  width: 100%;
-  max-width: 600px;
-  padding: 24px;
-}
-
-.banner-advertencia {
-  background: #FFF3E0;
-  border: 2px solid #F57F17;
-  color: #E65100;
-  padding: 14px 18px;
-  border-radius: 12px;
-  margin-bottom: 20px;
-  font-size: 14px;
+  border-color: var(--teal-700);
   font-weight: 600;
 }
 
+.btn-analizar { margin: 0; border-radius: 0; padding: 18px; font-size: 15px; }
+
+/* ============ RESULTADO ============ */
+.contenedor-resultado {
+  width: 100%;
+  max-width: 620px;
+}
+
+.banner-advertencia {
+  background: var(--amber-bg);
+  border: 1.5px solid var(--amber);
+  color: #8A5A1E;
+  padding: 14px 18px;
+  border-radius: var(--radius);
+  margin-bottom: 18px;
+  font-size: 13.5px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.banner-advertencia svg { flex-shrink: 0; color: var(--amber); }
+
 .resultado-card {
-  background: #fff;
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-  margin-bottom: 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  box-shadow: 0 1px 2px rgba(11, 61, 58, 0.04), 0 12px 32px rgba(11, 61, 58, 0.06);
+  margin-bottom: 22px;
 }
 
 .resultado-card .nombre-enfermedad {
-  font-size: 24px;
+  font-size: 23px;
   font-weight: 700;
-  margin-bottom: 12px;
+  color: var(--teal-900);
+  margin-bottom: 14px;
+  letter-spacing: -0.01em;
 }
 
 .barra-confianza {
-  background: #E0E0E0;
-  border-radius: 10px;
-  height: 24px;
+  background: var(--teal-100);
+  border-radius: 20px;
+  height: 26px;
   overflow: hidden;
-  margin-bottom: 8px;
 }
 
 .barra-confianza-fill {
-  background: #2E7D32;
+  background: linear-gradient(90deg, var(--teal-600), var(--teal-500));
   height: 100%;
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  padding-right: 10px;
+  padding-right: 12px;
   color: white;
   font-weight: 700;
-  font-size: 13px;
-  transition: width 0.4s;
+  font-size: 12.5px;
+  transition: width 0.5s ease;
+  border-radius: 20px;
+}
+
+.etiqueta-seccion {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 10px;
 }
 
 .alt-card {
-  background: #fff;
+  background: var(--card);
+  border: 1px solid var(--border);
   padding: 14px 18px;
-  border-radius: 10px;
+  border-radius: var(--radius);
   margin-bottom: 8px;
   display: flex;
   justify-content: space-between;
+  align-items: center;
   font-size: 14px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  color: var(--ink);
 }
+
+.alt-card span:last-child { font-weight: 700; color: var(--teal-700); }
 
 .acciones {
   display: flex;
   gap: 12px;
-  margin-top: 20px;
+  margin-top: 22px;
 }
 
 .btn-confirmar, .btn-descartar {
   flex: 1;
   padding: 14px;
-  border-radius: 10px;
-  font-size: 15px;
+  border-radius: var(--radius);
+  font-size: 14.5px;
   font-weight: 600;
-  cursor: pointer;
   border: none;
+  transition: opacity 0.15s;
 }
 
-.btn-confirmar {
-  background: #2E7D32;
-  color: white;
-}
+.btn-confirmar { background: var(--green); color: white; }
+.btn-descartar { background: var(--red-bg); color: var(--red); border: 1.5px solid var(--red); }
+.btn-confirmar:hover, .btn-descartar:hover { opacity: 0.85; }
 
-.btn-descartar {
-  background: white;
-  color: #C62828;
-  border: 2px solid #C62828;
+.enlaces-inferiores {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 18px;
 }
 
 .btn-secundario {
-  width: 100%;
-  margin-top: 12px;
-  padding: 12px;
   background: transparent;
   border: none;
-  color: #1565C0;
-  font-size: 14px;
-  cursor: pointer;
+  color: var(--teal-700);
+  font-size: 13.5px;
+  font-weight: 600;
 }
 
-/* HISTORIAL */
+.btn-secundario:hover { text-decoration: underline; }
+
+/* ============ HISTORIAL ============ */
 .contenedor-historial {
   width: 100%;
-  max-width: 700px;
-  background: #fff;
-  border-radius: 16px;
+  max-width: 720px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  box-shadow: 0 1px 2px rgba(11, 61, 58, 0.04), 0 12px 32px rgba(11, 61, 58, 0.06);
 }
 
 .lista-historial {
   padding: 20px 24px;
-  max-height: 500px;
+  max-height: 560px;
   overflow-y: auto;
 }
 
 .historial-card {
-  background: #FAFAFA;
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 12px;
-  border: 1px solid #E0E0E0;
+  background: var(--cream);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  margin-bottom: 10px;
 }
 
 .historial-hora {
   font-size: 12px;
-  color: #888;
+  color: var(--ink-soft);
   font-weight: 600;
+  display: flex;
+  justify-content: space-between;
 }
 
 .historial-diagnostico {
-  font-size: 15px;
+  font-size: 15.5px;
   font-weight: 700;
-  margin: 6px 0;
+  color: var(--teal-900);
+  margin: 6px 0 4px;
 }
 
-.historial-sintomas {
-  font-size: 13px;
-  color: #666;
-}
+.historial-sintomas { font-size: 13px; color: var(--ink-soft); }
 
 .estado-vacio {
   text-align: center;
-  padding: 40px 20px;
-  color: #999;
+  padding: 48px 20px;
+  color: var(--ink-faint);
   font-size: 14px;
 }
 
-.link-recuperar {
-  margin-top: 16px;
-  font-size: 13px;
-  color: #1565C0;
-  cursor: pointer;
-  text-decoration: underline;
-}
-
-.link-recuperar:hover {
-  color: #0D47A1;
-}
-
-/* PANEL DE ADMINISTRACIÓN */
+/* ============ ADMIN ============ */
 .contenedor-admin {
   width: 100%;
-  max-width: 900px;
-  background: #fff;
-  border-radius: 16px;
+  max-width: 960px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  box-shadow: 0 1px 2px rgba(11, 61, 58, 0.04), 0 12px 32px rgba(11, 61, 58, 0.06);
 }
 
 .stats-row {
   display: flex;
   gap: 16px;
-  padding: 20px 24px;
+  padding: 24px 26px;
 }
 
 .stat-card {
   flex: 1;
-  background: #F5F7FA;
-  border-radius: 12px;
-  padding: 16px;
+  background: var(--teal-100);
+  border-radius: var(--radius);
+  padding: 18px 20px;
 }
 
 .stat-label {
   font-size: 12px;
-  color: #666;
+  color: var(--teal-700);
+  font-weight: 600;
   margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
-.stat-value {
-  font-size: 28px;
-  font-weight: 700;
-  color: #1565C0;
-}
+.stat-value { font-size: 30px; font-weight: 700; color: var(--teal-900); }
+
+.tabla-wrap { padding: 0 26px 26px; overflow-x: auto; }
 
 .tabla-usuarios {
   width: 100%;
   border-collapse: collapse;
-  padding: 0 24px;
 }
 
 .tabla-usuarios th {
   text-align: left;
-  font-size: 12px;
-  color: #666;
+  font-size: 11.5px;
+  color: var(--ink-soft);
   text-transform: uppercase;
-  padding: 12px 24px;
-  background: #FAFAFA;
-  border-bottom: 2px solid #E0E0E0;
+  letter-spacing: 0.05em;
+  padding: 10px 14px;
+  border-bottom: 2px solid var(--border);
+  font-weight: 700;
 }
 
 .tabla-usuarios td {
-  padding: 14px 24px;
+  padding: 14px;
   font-size: 14px;
-  border-bottom: 1px solid #F0F0F0;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
 }
 
 .rol-badge {
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 600;
+  padding: 4px 11px;
+  border-radius: 20px;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: capitalize;
 }
 
-.rol-medico { background: #E8F5E9; color: #2E7D32; }
-.rol-enfermeria { background: #E3F2FD; color: #1565C0; }
-.rol-administrador { background: #FFF3E0; color: #E65100; }
+.rol-medico { background: var(--green-bg); color: var(--green); }
+.rol-enfermeria { background: var(--teal-100); color: var(--teal-700); }
+.rol-administrador { background: var(--amber-bg); color: var(--amber); }
 
 .btn-toggle {
-  padding: 6px 14px;
-  border-radius: 8px;
+  padding: 7px 14px;
+  border-radius: var(--radius);
   border: none;
   font-size: 12px;
-  cursor: pointer;
-  font-weight: 600;
+  font-weight: 700;
 }
 
-.btn-toggle.desactivar { background: #FFEBEE; color: #C62828; }
-.btn-toggle.activar { background: #E8F5E9; color: #2E7D32; }
+.btn-toggle.desactivar { background: var(--red-bg); color: var(--red); }
+.btn-toggle.activar { background: var(--green-bg); color: var(--green); }
+
+/* ============ RESPONSIVE ============ */
+@media (max-width: 600px) {
+  .login-card { width: 100%; padding: 32px 24px; }
+  .navbar { padding: 16px 18px; flex-wrap: wrap; gap: 10px; }
+  .categoria, .lista-historial, .stats-row, .tabla-wrap { padding-left: 16px; padding-right: 16px; }
+  .stats-row { flex-direction: column; }
+  .resultado-card { padding: 20px; }
+  .acciones { flex-direction: column; }
+}

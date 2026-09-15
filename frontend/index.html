@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SaludXpert — Centro de Salud de Salcajá</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -11,7 +14,13 @@
   <!-- PANTALLA: LOGIN -->
   <div id="pantalla-login" class="pantalla activa">
     <div class="login-card">
-      <div class="logo">SaludXpert</div>
+      <div class="marca">
+        <svg class="marca-icono" width="34" height="34" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L3 6v6c0 5 4 9 9 10 5-1 9-5 9-10V6l-9-4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+          <path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+        <span class="marca-texto">SaludXpert</span>
+      </div>
       <p class="subtitulo">Centro de Salud de Salcajá</p>
 
       <form id="form-login">
@@ -21,7 +30,7 @@
         <label for="contrasena">Contraseña</label>
         <input type="password" id="contrasena" placeholder="••••••••" required>
 
-        <button type="submit" class="btn-primario">Iniciar Sesión →</button>
+        <button type="submit" class="btn-primario">Iniciar sesión</button>
         <p class="link-recuperar" id="link-recuperar">¿Olvidaste tu contraseña?</p>
       </form>
 
@@ -33,7 +42,13 @@
   <div id="pantalla-sintomas" class="pantalla">
     <div class="contenedor-sintomas">
       <div class="navbar">
-        <span class="navbar-titulo">Nueva Consulta</span>
+        <div class="navbar-marca">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2L3 6v6c0 5 4 9 9 10 5-1 9-5 9-10V6l-9-4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+            <path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+          <span class="navbar-titulo">Nueva consulta</span>
+        </div>
         <span id="contador-sintomas" class="badge">0 síntomas</span>
       </div>
 
@@ -52,7 +67,7 @@
         <div class="botones-sintomas" id="cat-general"></div>
       </div>
 
-      <button id="btn-analizar" class="btn-primario">Analizar Síntomas →</button>
+      <button id="btn-analizar" class="btn-primario btn-analizar">Analizar síntomas</button>
     </div>
   </div>
 
@@ -60,19 +75,24 @@
   <div id="pantalla-resultado" class="pantalla">
     <div class="contenedor-resultado">
       <div id="banner-advertencia" class="banner-advertencia" style="display:none;">
-        ⚠ Confianza insuficiente — Se recomienda ampliar la evaluación clínica.
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Confianza insuficiente — se recomienda ampliar la evaluación clínica.</span>
       </div>
 
       <div id="resultado-principal" class="resultado-card"></div>
+
+      <p class="etiqueta-seccion">Diagnósticos alternativos</p>
       <div id="resultados-alternativos"></div>
 
       <div class="acciones">
-        <button id="btn-confirmar" class="btn-confirmar">Confirmar Diagnóstico</button>
-        <button id="btn-descartar" class="btn-descartar">Descartar Sugerencia</button>
+        <button id="btn-confirmar" class="btn-confirmar">Confirmar diagnóstico</button>
+        <button id="btn-descartar" class="btn-descartar">Descartar sugerencia</button>
       </div>
 
-      <button id="btn-nueva-consulta" class="btn-secundario">Nueva Consulta</button>
-      <button id="btn-ver-historial" class="btn-secundario">Ver Historial del Turno</button>
+      <div class="enlaces-inferiores">
+        <button id="btn-nueva-consulta" class="btn-secundario">Nueva consulta</button>
+        <button id="btn-ver-historial" class="btn-secundario">Ver historial del turno</button>
+      </div>
     </div>
   </div>
 
@@ -80,50 +100,65 @@
   <div id="pantalla-historial" class="pantalla">
     <div class="contenedor-historial">
       <div class="navbar">
-        <span class="navbar-titulo">Historial del Turno</span>
-        <span id="btn-ir-consulta" class="badge" style="cursor:pointer;">+ Nueva Consulta</span>
-        <span id="btn-ir-admin" class="badge" style="cursor:pointer; margin-left:8px;">⚙ Administración</span>
+        <div class="navbar-marca">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2L3 6v6c0 5 4 9 9 10 5-1 9-5 9-10V6l-9-4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+            <path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+          <span class="navbar-titulo">Historial del turno</span>
+        </div>
+        <div class="navbar-acciones">
+          <span id="btn-ir-consulta" class="badge badge-accion">Nueva consulta</span>
+          <span id="btn-ir-admin" class="badge badge-accion badge-admin">Administración</span>
+        </div>
       </div>
       <div id="lista-historial" class="lista-historial"></div>
     </div>
   </div>
 
-    <!-- PANTALLA: PANEL DE ADMINISTRACIÓN -->
+  <!-- PANTALLA: PANEL DE ADMINISTRACIÓN -->
   <div id="pantalla-admin" class="pantalla">
     <div class="contenedor-admin">
       <div class="navbar">
-        <span class="navbar-titulo">Panel de Administración</span>
-        <span id="btn-agregar-usuario" class="badge" style="cursor:pointer;">+ Agregar Usuario</span>
+        <div class="navbar-marca">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2L3 6v6c0 5 4 9 9 10 5-1 9-5 9-10V6l-9-4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+            <path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+          <span class="navbar-titulo">Panel de administración</span>
+        </div>
+        <span id="btn-agregar-usuario" class="badge badge-accion">+ Agregar usuario</span>
       </div>
 
       <div class="stats-row">
         <div class="stat-card">
-          <div class="stat-label">Usuarios Activos</div>
+          <div class="stat-label">Usuarios activos</div>
           <div class="stat-value" id="stat-usuarios-activos">0</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Consultas Hoy</div>
+          <div class="stat-label">Consultas hoy</div>
           <div class="stat-value" id="stat-consultas-hoy">0</div>
         </div>
       </div>
 
-      <table class="tabla-usuarios">
-        <thead>
-          <tr>
-            <th>Nombre</th>
-            <th>Correo</th>
-            <th>Rol</th>
-            <th>Estado</th>
-            <th>Acción</th>
-          </tr>
-        </thead>
-        <tbody id="tabla-usuarios-body"></tbody>
-      </table>
+      <div class="tabla-wrap">
+        <table class="tabla-usuarios">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Correo</th>
+              <th>Rol</th>
+              <th>Estado</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-usuarios-body"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
   <script src="script.js"></script>
 </body>
 </html>
