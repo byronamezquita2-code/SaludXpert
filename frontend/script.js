@@ -160,10 +160,12 @@ function mostrarResultado(resultado) {
   const principalDiv = document.getElementById('resultado-principal');
   principalDiv.innerHTML = `
     <div class="nombre-enfermedad">${principal.enfermedad}</div>
+    <div class="confianza-header">
+      <span class="confianza-label">Nivel de confianza</span>
+      <span class="confianza-valor">${principal.confianza}%</span>
+    </div>
     <div class="barra-confianza">
-      <div class="barra-confianza-fill" style="width:${principal.confianza}%">
-        ${principal.confianza}%
-      </div>
+      <div class="barra-confianza-fill" style="width:${principal.confianza}%"></div>
     </div>
   `;
 
