@@ -215,8 +215,8 @@ tailwind.config={theme:{extend:{"colors":{"on-primary":"#ffffff","on-secondary-c
         <div class="flex flex-col w-full px-4 md:px-margin-desktop pb-xl">
           <div class="flex items-center justify-between py-xl flex-wrap gap-md">
             <div class="flex flex-col gap-xs">
-              <h1 class="font-display-lg text-display-lg text-on-surface leading-tight">Panel de Administración</h1>
-              <p class="font-body-lg text-body-lg text-on-surface-variant">Gestión de usuarios y métricas del sistema.</p>
+              <h1 class="font-display-lg text-display-lg text-on-surface leading-tight" id="titulo-panel-admin">Panel de Administración</h1>
+              <p class="font-body-lg text-body-lg text-on-surface-variant" id="subtitulo-panel-admin">Gestión de usuarios y métricas del sistema.</p>
             </div>
             <button id="btn-agregar-usuario" class="h-12 px-lg bg-primary text-on-primary rounded font-label-md text-label-md flex items-center justify-center gap-sm shadow-sm hover:shadow-md transition-shadow">
               <span class="material-symbols-outlined text-[18px]">add</span>
@@ -228,7 +228,7 @@ tailwind.config={theme:{extend:{"colors":{"on-primary":"#ffffff","on-secondary-c
             <div class="bg-surface-container-lowest p-lg rounded-lg shadow-sm border border-outline-variant flex flex-col gap-sm">
               <div class="flex items-center gap-sm text-on-surface-variant">
                 <span class="material-symbols-outlined text-[20px]">group</span>
-                <span class="font-label-md text-label-md uppercase tracking-wider">Usuarios activos</span>
+                <span class="font-label-md text-label-md uppercase tracking-wider" id="label-stat-usuarios">Usuarios activos</span>
               </div>
               <div class="font-display-lg text-display-lg text-primary" id="stat-usuarios-activos">0</div>
             </div>
@@ -256,7 +256,7 @@ tailwind.config={theme:{extend:{"colors":{"on-primary":"#ffffff","on-secondary-c
 
           <div class="bg-surface-container-lowest rounded-lg shadow-sm border border-outline-variant flex flex-col overflow-hidden">
             <div class="px-lg py-md border-b border-surface-container-high bg-surface-container-low/50">
-              <h2 class="font-headline-sm text-headline-sm text-on-surface">Gestión de Usuarios</h2>
+              <h2 class="font-headline-sm text-headline-sm text-on-surface" id="titulo-tabla-usuarios">Gestión de Usuarios</h2>
             </div>
             <div class="overflow-x-auto">
               <table class="w-full text-left">
@@ -266,7 +266,7 @@ tailwind.config={theme:{extend:{"colors":{"on-primary":"#ffffff","on-secondary-c
                     <th class="px-lg py-md font-label-md text-label-md text-on-surface-variant uppercase tracking-wider whitespace-nowrap">Correo</th>
                     <th class="px-lg py-md font-label-md text-label-md text-on-surface-variant uppercase tracking-wider whitespace-nowrap">Rol</th>
                     <th class="px-lg py-md font-label-md text-label-md text-on-surface-variant uppercase tracking-wider whitespace-nowrap">Estado</th>
-                    <th class="px-lg py-md font-label-md text-label-md text-on-surface-variant uppercase tracking-wider whitespace-nowrap text-right">Acción</th>
+                    <th class="px-lg py-md font-label-md text-label-md text-on-surface-variant uppercase tracking-wider whitespace-nowrap text-right" id="th-acciones">Acción</th>
                   </tr>
                 </thead>
                 <tbody id="tabla-usuarios-body" class="divide-y divide-surface-container-high"></tbody>

@@ -1,6 +1,7 @@
 # Motor de inferencia SaludXpert — dependencias mínimas
 flask
 flask-cors
+pgmpy==0.1.25
 python-dotenv
 supabase
 gunicorn

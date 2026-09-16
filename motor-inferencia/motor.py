@@ -3,6 +3,18 @@ import time
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
+from pgmpy.inference import VariableElimination
+from pgmpy.factors.discrete import TabularCPD
+
+# La clase se llama distinto según la versión de pgmpy instalada.
+try:
+    from pgmpy.models import DiscreteBayesianNetwork as BayesianNetwork
+except ImportError:
+    try:
+        from pgmpy.models import BayesianNetwork
+    except ImportError:
+        from pgmpy.models import BayesianModel as BayesianNetwork
+
 # Cargar variables de entorno
 load_dotenv()
 
@@ -11,18 +23,21 @@ SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Penalización cuando un síntoma ingresado NO está relacionado con la enfermedad.
-
+# Probabilidad de que un síntoma esté presente en una enfermedad con la que
+# NO tiene una relación registrada en la base de datos. Actúa como CPD por
+# defecto para los pares (enfermedad, síntoma) sin dato explícito.
 PENALIZACION_SINTOMA_AUSENTE = 0.05
 
 # ── Caché en memoria ────
-# Los datos se refrescan automáticamente cada TTL_SEGUNDOS.
+# Los datos (y el modelo bayesiano construido a partir de ellos) se
+# refrescan automáticamente cada TTL_SEGUNDOS.
 TTL_SEGUNDOS = 300  # 5 minutos
 
 _cache = {
     "enfermedades": None,
     "sintomas": None,
     "relaciones": None,
+    "modelo": None,
     "timestamp": 0.0,
 }
 
@@ -35,6 +50,9 @@ def _refrescar_cache():
     _cache["enfermedades"] = supabase.table("enfermedades").select("*").execute().data
     _cache["sintomas"] = supabase.table("sintomas").select("*").execute().data
     _cache["relaciones"] = supabase.table("enfermedad_sintoma").select("*").execute().data
+    _cache["modelo"] = _construir_modelo(
+        _cache["enfermedades"], _cache["sintomas"], _cache["relaciones"]
+    )
     _cache["timestamp"] = time.time()
 
 
@@ -43,6 +61,13 @@ def _obtener_datos():
     if not _cache_valida():
         _refrescar_cache()
     return _cache["enfermedades"], _cache["sintomas"], _cache["relaciones"]
+
+
+def _obtener_modelo() -> "BayesianNetwork":
+    """Devuelve la red bayesiana ya construida (desde caché o recién armada)."""
+    if not _cache_valida():
+        _refrescar_cache()
+    return _cache["modelo"]
 
 
 # ── Funciones de acceso individuales (mantenidas para compatibilidad) ─────────
@@ -65,16 +90,90 @@ def obtener_relaciones():
     return rels
 
 
-def construir_red_bayesiana():
+def _construir_modelo(enfermedades, sintomas, relaciones) -> "BayesianNetwork":
     """
     Construye la red bayesiana a partir de los datos en Supabase.
-    Cada síntoma depende de la enfermedad (Enfermedad -> Síntoma).
+
+    Topología: un nodo raíz "Enfermedad" (una enfermedad por estado) del que
+    dependen todos los nodos "síntoma" (binarios: Ausente/Presente). Cada
+    arista Enfermedad -> Síntoma tiene su propia CPD, tomada de la tabla
+    enfermedad_sintoma cuando existe una relación registrada, o usando
+    PENALIZACION_SINTOMA_AUSENTE como probabilidad base cuando no la hay.
+
+    Esta estructura es la red bayesiana propiamente dicha (nodos + aristas +
+    tablas de probabilidad condicional), sobre la que luego se corre
+    inferencia exacta (eliminación de variables) en calcular_diagnostico().
+    """
+    nombres_enfermedades = [e["nombre"] for e in enfermedades]
+    nombres_sintomas = [s["nombre"] for s in sintomas]
+
+    # Normalizar los priors por si en la base de datos no suman exactamente 1.
+    total_prior = sum(e["probabilidad_prior"] for e in enfermedades) or 1
+    priors = [e["probabilidad_prior"] / total_prior for e in enfermedades]
+
+    relacion_por_par = {
+        (r["enfermedad_id"], r["sintoma_id"]): r["probabilidad"] for r in relaciones
+    }
+
+    aristas = [("Enfermedad", nombre) for nombre in nombres_sintomas]
+    modelo = BayesianNetwork(aristas)
+    if not aristas:
+        modelo.add_node("Enfermedad")
+
+    cpds = [
+        TabularCPD(
+            variable="Enfermedad",
+            variable_card=len(nombres_enfermedades),
+            values=[[p] for p in priors],
+            state_names={"Enfermedad": nombres_enfermedades},
+        )
+    ]
+
+    for sintoma in sintomas:
+        p_presente = []
+        for enfermedad in enfermedades:
+            prob = relacion_por_par.get(
+                (enfermedad["id"], sintoma["id"]), PENALIZACION_SINTOMA_AUSENTE
+            )
+            # Clamp para que la CPD sea siempre una distribución válida.
+            prob = min(max(float(prob), 0.0001), 0.9999)
+            p_presente.append(prob)
+        p_ausente = [1 - p for p in p_presente]
+
+        cpds.append(
+            TabularCPD(
+                variable=sintoma["nombre"],
+                variable_card=2,
+                values=[p_ausente, p_presente],
+                evidence=["Enfermedad"],
+                evidence_card=[len(nombres_enfermedades)],
+                state_names={
+                    sintoma["nombre"]: ["Ausente", "Presente"],
+                    "Enfermedad": nombres_enfermedades,
+                },
+            )
+        )
+
+    modelo.add_cpds(*cpds)
+    modelo.check_model()
+    return modelo
+
+
+def construir_red_bayesiana():
+    """
+    Construye (o recupera de caché) la red bayesiana completa y muestra un
+    resumen de su estructura. Se conserva por compatibilidad con el uso
+    original de esta función.
     """
     enfermedades, sintomas, relaciones = _obtener_datos()
+    modelo = _obtener_modelo()
 
     print(f"Enfermedades cargadas: {len(enfermedades)}")
     print(f"Síntomas cargados: {len(sintomas)}")
     print(f"Relaciones cargadas: {len(relaciones)}")
+    print(f"Nodos de la red bayesiana: {len(modelo.nodes())}")
+    print(f"Aristas de la red bayesiana: {len(modelo.edges())}")
+    print(f"Modelo válido (check_model): {modelo.check_model()}")
 
     return enfermedades, sintomas, relaciones
 
@@ -82,50 +181,57 @@ def construir_red_bayesiana():
 def calcular_diagnostico(sintomas_ingresados: list):
     """
     Recibe una lista de nombres de síntomas y retorna las enfermedades más
-    probables ordenadas por confianza (Naive Bayes normalizado).
+    probables ordenadas por confianza, usando inferencia exacta (eliminación
+    de variables) sobre la red bayesiana construida con pgmpy.
 
     sintomas_ingresados: lista de strings, ej: ["Tos", "Fiebre", "Dolor de garganta"]
     """
-    # Una sola llamada al caché en lugar de tres llamadas independientes
     enfermedades, sintomas, relaciones = _obtener_datos()
+    modelo = _obtener_modelo()
 
-    # Mapeo de nombres a ids
     sintoma_nombre_a_id = {s["nombre"]: s["id"] for s in sintomas}
-    ids_sintomas_ingresados = [
-        sintoma_nombre_a_id[s] for s in sintomas_ingresados if s in sintoma_nombre_a_id
-    ]
+    nombres_sintomas_red = set(modelo.nodes()) - {"Enfermedad"}
+
+    # Solo los síntomas reportados y presentes en la red se usan como
+    # evidencia observada ("Presente"); los demás quedan sin observar.
+    evidencia = {
+        nombre: "Presente"
+        for nombre in sintomas_ingresados
+        if nombre in sintoma_nombre_a_id and nombre in nombres_sintomas_red
+    }
+
+    inferencia = VariableElimination(modelo)
+    if evidencia:
+        distribucion = inferencia.query(
+            variables=["Enfermedad"], evidence=evidencia, show_progress=False
+        )
+    else:
+        distribucion = inferencia.query(variables=["Enfermedad"], show_progress=False)
+
+    probabilidad_por_enfermedad = dict(
+        zip(distribucion.state_names["Enfermedad"], distribucion.values)
+    )
+
+    ids_evidencia = {sintoma_nombre_a_id[nombre] for nombre in evidencia}
 
     resultados = []
-
     for enfermedad in enfermedades:
-        prob_prior = enfermedad["probabilidad_prior"]
-        relaciones_enfermedad = [
-            r for r in relaciones if r["enfermedad_id"] == enfermedad["id"]
-        ]
+        ids_sintomas_relacionados = {
+            r["sintoma_id"] for r in relaciones if r["enfermedad_id"] == enfermedad["id"]
+        }
+        sintomas_coincidentes = len(ids_evidencia & ids_sintomas_relacionados)
 
-        # Calcular probabilidad usando Naive Bayes simplificado
-        probabilidad = prob_prior
-        sintomas_coincidentes = 0
-
-        for sid in ids_sintomas_ingresados:
-            relacion = next(
-                (r for r in relaciones_enfermedad if r["sintoma_id"] == sid), None
-            )
-            if relacion:
-                probabilidad *= relacion["probabilidad"]
-                sintomas_coincidentes += 1
-            else:
-                # Penalización: síntoma no es típico de esta enfermedad
-                probabilidad *= PENALIZACION_SINTOMA_AUSENTE
-
+        # Regla clínica: solo se sugieren enfermedades con al menos un
+        # síntoma relacionado entre los reportados (evita sugerir
+        # diagnósticos sin ninguna evidencia asociada).
         if sintomas_coincidentes > 0:
             resultados.append({
                 "enfermedad": enfermedad["nombre"],
-                "probabilidad": round(probabilidad, 4),
-                "sintomas_coincidentes": sintomas_coincidentes
+                "probabilidad": round(float(probabilidad_por_enfermedad[enfermedad["nombre"]]), 6),
+                "sintomas_coincidentes": sintomas_coincidentes,
             })
 
-    # Normalizar probabilidades para que sumen 1 (100%)
+    # Renormalizar la confianza solo entre las enfermedades sugeridas.
     total = sum(r["probabilidad"] for r in resultados)
     if total > 0:
         for r in resultados:
@@ -134,13 +240,12 @@ def calcular_diagnostico(sintomas_ingresados: list):
         for r in resultados:
             r["confianza"] = 0.0
 
-    # Ordenar de mayor a menor confianza
     return sorted(resultados, key=lambda x: x["confianza"], reverse=True)
 
 
 if __name__ == "__main__":
     # Prueba local del motor
-    print("=== Probando conexión con Supabase ===")
+    print("=== Probando conexión con Supabase y construcción de la red ===")
     construir_red_bayesiana()
 
     print("\n=== Probando diagnóstico con síntomas de ejemplo ===")

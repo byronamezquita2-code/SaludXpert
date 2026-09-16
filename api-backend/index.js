@@ -80,6 +80,31 @@ async function requireAdmin(req, res, next) {
   }
 }
 
+// ── Middleware: médicos o administradores ────────────────────────────────────
+// Para vistas de solo lectura que los médicos también deben poder ver
+// (equipo médico, diagnósticos del día), pero enfermería no.
+// Debe usarse DESPUÉS de requireAuth.
+async function requireMedicoOAdmin(req, res, next) {
+  try {
+    const { data, error } = await supabase
+      .from('usuarios')
+      .select('rol')
+      .eq('auth_id', req.authUser.id)
+      .single();
+
+    if (error || !data) {
+      return res.status(403).json({ error: 'Usuario no encontrado en el sistema.' });
+    }
+    if (!['medico', 'administrador'].includes(data.rol)) {
+      return res.status(403).json({ error: 'Acceso denegado.' });
+    }
+    req.rolUsuario = data.rol;
+    next();
+  } catch (err) {
+    res.status(500).json({ error: 'Error verificando permisos.' });
+  }
+}
+
 // ── Ruta de salud ─────────────────────────────────────────────────────────────
 app.get('/', (req, res) => {
   res.json({ mensaje: 'API SaludXpert funcionando correctamente' });
@@ -210,13 +235,18 @@ app.get('/api/usuarios/me', requireAuth, async (req, res) => {
   }
 });
 
-// ── Gestión de usuarios (solo administrador) ──────────────────────────────────
-app.get('/api/usuarios', requireAuth, requireAdmin, async (req, res) => {
+// ── Gestión de usuarios ────────────────────────────────────────────────────────
+// GET: visible para médicos y administradores. Un médico solo ve la lista
+// de médicos usando el sistema (sin correos de enfermería/administración);
+// el administrador ve a todos.
+// POST/PATCH (agregar, activar/desactivar): solo administrador.
+app.get('/api/usuarios', requireAuth, requireMedicoOAdmin, async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('usuarios')
-      .select('*')
-      .order('creado_en', { ascending: false });
+    let query = supabase.from('usuarios').select('*').order('creado_en', { ascending: false });
+    if (req.rolUsuario === 'medico') {
+      query = query.eq('rol', 'medico');
+    }
+    const { data, error } = await query;
 
     if (error) throw error;
     res.json(data);

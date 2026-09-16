@@ -1,4 +1,3 @@
-// ── Configuración ─────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://bpisojfqhsaisfvnwhpr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_I0o7hKokgpc5hyIcBZeRQg_nLHEm60L';
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -130,13 +129,17 @@ function logoSVG() {
 
 /**
  * Construye el sidebar HTML para una pantalla.
- * isAdmin: si es true muestra el enlace de Administración.
+ * rol: 'administrador' muestra "Administración" (con gestión de usuarios),
+ * 'medico' muestra "Equipo" (solo lectura: médicos + diagnósticos del día),
+ * cualquier otro rol (enfermería) no ve ese enlace.
  */
-function sidebarHTML(isAdmin) {
-  const adminLink = isAdmin
+function sidebarHTML(rol) {
+  const esAdmin = rol === 'administrador';
+  const esMedico = rol === 'medico';
+  const adminLink = (esAdmin || esMedico)
     ? `<span class="nav-link nav-admin" id="nav-admin-link">
-         <span class="material-symbols-outlined mr-md">admin_panel_settings</span>
-         <span class="font-label-md text-label-md">Administración</span>
+         <span class="material-symbols-outlined mr-md">${esAdmin ? 'admin_panel_settings' : 'groups'}</span>
+         <span class="font-label-md text-label-md">${esAdmin ? 'Administración' : 'Equipo'}</span>
        </span>`
     : '';
 
@@ -174,12 +177,12 @@ function topbarHTML() {
   `;
 }
 
-function inyectarShell(isAdmin) {
+function inyectarShell(rol) {
   const pantallas = ['sintomas', 'resultado', 'historial', 'admin'];
   pantallas.forEach(p => {
     const sidebar = document.getElementById(`sidebar-${p}`);
     const topbar = document.getElementById(`topbar-${p}`);
-    if (sidebar) sidebar.innerHTML = sidebarHTML(isAdmin);
+    if (sidebar) sidebar.innerHTML = sidebarHTML(rol);
     if (topbar) topbar.innerHTML = topbarHTML();
   });
   registrarEventosShell();
@@ -246,8 +249,7 @@ async function restaurarSesion() {
   const { data: sessionData } = await supabaseClient.auth.getSession();
   if (sessionData?.session) {
     await cargarUsuarioActual();
-    const esAdmin = usuarioActual?.rol === 'administrador';
-    inyectarShell(esAdmin);
+    inyectarShell(usuarioActual?.rol);
     mostrarPantalla('pantalla-sintomas');
     cargarSintomas();
   }
@@ -276,8 +278,7 @@ document.getElementById('form-login').addEventListener('submit', async (e) => {
   }
 
   await cargarUsuarioActual();
-  const esAdmin = usuarioActual?.rol === 'administrador';
-  inyectarShell(esAdmin);
+  inyectarShell(usuarioActual?.rol);
   mostrarPantalla('pantalla-sintomas');
   cargarSintomas();
 });
@@ -569,14 +570,40 @@ document.getElementById('btn-agregar-usuario').addEventListener('click', async (
 });
 
 async function cargarPanelAdmin() {
+  const esAdmin = usuarioActual?.rol === 'administrador';
+
+  // Textos y controles que difieren entre administrador y médico
+  document.getElementById('titulo-panel-admin').textContent = esAdmin
+    ? 'Panel de Administración'
+    : 'Equipo y Diagnósticos del Día';
+  document.getElementById('subtitulo-panel-admin').textContent = esAdmin
+    ? 'Gestión de usuarios y métricas del sistema.'
+    : 'Médicos activos en el sistema y estadísticas del día.';
+  document.getElementById('label-stat-usuarios').textContent = esAdmin
+    ? 'Usuarios activos'
+    : 'Médicos en el sistema';
+  document.getElementById('titulo-tabla-usuarios').textContent = esAdmin
+    ? 'Gestión de Usuarios'
+    : 'Médicos Usando el Sistema';
+
+  const btnAgregar = document.getElementById('btn-agregar-usuario');
+  if (btnAgregar) btnAgregar.style.display = esAdmin ? '' : 'none';
+  const thAcciones = document.getElementById('th-acciones');
+  if (thAcciones) thAcciones.style.display = esAdmin ? '' : 'none';
+
   try {
+    // El backend ya filtra a solo médicos cuando quien consulta es médico
+    // (ver requireMedicoOAdmin en api-backend), así que "usuarios" aquí ya
+    // es la lista correcta para cada rol.
     const [usuarios, consultas] = await Promise.all([
       apiFetch('/api/usuarios'),
       apiFetch('/api/consultas'),
     ]);
 
     // Estadísticas
-    document.getElementById('stat-usuarios-activos').textContent = usuarios.filter(u => u.activo).length;
+    document.getElementById('stat-usuarios-activos').textContent = esAdmin
+      ? usuarios.filter(u => u.activo).length
+      : usuarios.length;
     const hoy = new Date().toISOString().split('T')[0];
     const consultasHoy = consultas.filter(c => c.fecha.startsWith(hoy));
     document.getElementById('stat-consultas-hoy').textContent = consultasHoy.length;
@@ -608,35 +635,40 @@ async function cargarPanelAdmin() {
       `;
     }
 
-    // Tabla de usuarios
+    // Tabla de usuarios / equipo médico (solo lectura para médicos)
     const tbody = document.getElementById('tabla-usuarios-body');
     tbody.innerHTML = '';
     usuarios.forEach(u => {
       const tr = document.createElement('tr');
+      const accionTd = esAdmin
+        ? `<td>
+            <button class="btn-toggle ${u.activo ? 'desactivar' : 'activar'}" data-id="${u.id}" data-activo="${u.activo}">
+              ${u.activo ? 'Desactivar' : 'Activar'}
+            </button>
+          </td>`
+        : '';
       tr.innerHTML = `
         <td>${u.nombre}</td>
         <td>${u.correo}</td>
         <td><span class="rol-badge rol-${u.rol}">${u.rol}</span></td>
         <td>${u.activo ? 'Activo' : 'Inactivo'}</td>
-        <td>
-          <button class="btn-toggle ${u.activo ? 'desactivar' : 'activar'}" data-id="${u.id}" data-activo="${u.activo}">
-            ${u.activo ? 'Desactivar' : 'Activar'}
-          </button>
-        </td>
+        ${accionTd}
       `;
       tbody.appendChild(tr);
     });
 
-    tbody.querySelectorAll('.btn-toggle').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const activoActual = btn.dataset.activo === 'true';
-        await apiFetch(`/api/usuarios/${btn.dataset.id}`, {
-          method: 'PATCH',
-          body: JSON.stringify({ activo: !activoActual }),
+    if (esAdmin) {
+      tbody.querySelectorAll('.btn-toggle').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const activoActual = btn.dataset.activo === 'true';
+          await apiFetch(`/api/usuarios/${btn.dataset.id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ activo: !activoActual }),
+          });
+          await cargarPanelAdmin();
         });
-        await cargarPanelAdmin();
       });
-    });
+    }
 
   } catch (error) {
     console.error('Error cargando panel admin:', error);
