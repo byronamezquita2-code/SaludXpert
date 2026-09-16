@@ -70,6 +70,43 @@ tailwind.config={theme:{extend:{"colors":{"on-primary":"#ffffff","on-secondary-c
   </main>
 </div>
 
+<!-- ============ CREAR CONTRASEÑA (invitación / recuperación) ============ -->
+<div id="pantalla-nueva-contrasena" class="pantalla">
+  <main class="flex min-h-screen items-center justify-center p-margin-mobile">
+    <div class="w-full max-w-md p-10 bg-surface-container-lowest rounded-xl shadow-lg flex flex-col items-center">
+      <div class="mb-8 flex flex-col items-center">
+        <svg class="w-16 h-16 mb-3 text-primary" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L3 6v6c0 5 4 9 9 10 5-1 9-5 9-10V6l-9-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <h1 class="text-display-lg text-primary text-center">SaludXpert</h1>
+      </div>
+      <p class="text-body-lg text-on-surface-variant text-center mb-6">Bienvenido/a. Antes de continuar, crea tu contraseña para poder iniciar sesión de nuevo más adelante.</p>
+      <form id="form-nueva-contrasena" class="w-full flex flex-col gap-6">
+        <div class="flex flex-col gap-2">
+          <label class="text-label-md text-on-surface" for="nueva-contrasena">Nueva contraseña</label>
+          <div class="relative">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">lock</span>
+            <input class="w-full pl-10 pr-4 py-3 bg-surface rounded-lg border border-outline-variant focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-body-lg text-on-surface transition-all" id="nueva-contrasena" placeholder="••••••••" required type="password" minlength="6">
+          </div>
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="text-label-md text-on-surface" for="confirmar-contrasena">Confirmar contraseña</label>
+          <div class="relative">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">lock</span>
+            <input class="w-full pl-10 pr-4 py-3 bg-surface rounded-lg border border-outline-variant focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-body-lg text-on-surface transition-all" id="confirmar-contrasena" placeholder="••••••••" required type="password" minlength="6">
+          </div>
+        </div>
+        <button class="w-full py-4 mt-2 bg-primary text-on-primary text-headline-sm rounded-lg hover:bg-on-primary-fixed-variant transition-colors shadow-sm hover:shadow-md flex items-center justify-center gap-2 group" type="submit">
+          Guardar y continuar
+          <span class="material-symbols-outlined transition-transform group-hover:translate-x-1">arrow_forward</span>
+        </button>
+      </form>
+      <p id="mensaje-error-nueva-contrasena" class="mensaje-error text-center"></p>
+    </div>
+  </main>
+</div>
+
 <!-- ============ NUEVA CONSULTA (síntomas) ============ -->
 <div id="pantalla-sintomas" class="pantalla">
   <div class="app-shell">

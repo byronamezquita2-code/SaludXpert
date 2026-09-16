@@ -255,8 +255,80 @@ async function restaurarSesion() {
   }
 }
 
+// ── Invitación / recuperación de contraseña ───────────────────────────────────
+// Cuando el usuario llega desde el enlace de un correo de invitación o de
+// recuperación de contraseña, Supabase inicia sesión automáticamente usando
+// el token que viene en la URL (#access_token=...&type=invite|recovery).
+// Sin esta pantalla intermedia, el usuario quedaría "adentro" de la app sin
+// haber definido nunca una contraseña propia.
+function esEnlaceDeInvitacionORecuperacion() {
+  return /type=invite|type=recovery/.test(window.location.hash);
+}
+
+// Espera a que supabase-js procese el token de la URL y deje la sesión lista.
+async function esperarSesionDesdeEnlace(intentos = 20) {
+  for (let i = 0; i < intentos; i++) {
+    const { data } = await supabaseClient.auth.getSession();
+    if (data?.session) return true;
+    await new Promise(resolve => setTimeout(resolve, 250));
+  }
+  return false;
+}
+
+async function manejarEnlaceEspecial() {
+  if (!esEnlaceDeInvitacionORecuperacion()) return false;
+
+  const sesionLista = await esperarSesionDesdeEnlace();
+
+  // Limpiar el hash para que un refresh no vuelva a disparar este flujo.
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+
+  if (!sesionLista) {
+    await mostrarAlerta('Enlace inválido', 'Este enlace ya no es válido o expiró. Solicita uno nuevo.');
+    mostrarPantalla('pantalla-login');
+    return true;
+  }
+
+  mostrarPantalla('pantalla-nueva-contrasena');
+  return true;
+}
+
+document.getElementById('form-nueva-contrasena').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const nueva = document.getElementById('nueva-contrasena').value;
+  const confirmar = document.getElementById('confirmar-contrasena').value;
+  const mensajeError = document.getElementById('mensaje-error-nueva-contrasena');
+  mensajeError.textContent = '';
+
+  if (nueva !== confirmar) {
+    mensajeError.textContent = 'Las contraseñas no coinciden.';
+    return;
+  }
+  if (nueva.length < 6) {
+    mensajeError.textContent = 'La contraseña debe tener al menos 6 caracteres.';
+    return;
+  }
+
+  const { error } = await supabaseClient.auth.updateUser({ password: nueva });
+  if (error) {
+    mensajeError.textContent = 'No se pudo guardar la contraseña. Intenta de nuevo.';
+    return;
+  }
+
+  await cargarUsuarioActual();
+  inyectarShell(usuarioActual?.rol);
+  mostrarPantalla('pantalla-sintomas');
+  cargarSintomas();
+});
+
 // Ejecutar al cargar la página
-restaurarSesion();
+(async function iniciarApp() {
+  const manejadoPorEnlaceEspecial = await manejarEnlaceEspecial();
+  if (!manejadoPorEnlaceEspecial) {
+    await restaurarSesion();
+  }
+})();
 
 // ── LOGIN ─────────────────────────────────────────────────────────────────────
 document.getElementById('form-login').addEventListener('submit', async (e) => {
