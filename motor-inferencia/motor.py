@@ -1,4 +1,5 @@
 import os
+import time
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
@@ -10,23 +11,58 @@ SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+# Penalización cuando un síntoma ingresado NO está relacionado con la enfermedad.
+
+PENALIZACION_SINTOMA_AUSENTE = 0.05
+
+# ── Caché en memoria ────
+# Los datos se refrescan automáticamente cada TTL_SEGUNDOS.
+TTL_SEGUNDOS = 300  # 5 minutos
+
+_cache = {
+    "enfermedades": None,
+    "sintomas": None,
+    "relaciones": None,
+    "timestamp": 0.0,
+}
+
+
+def _cache_valida() -> bool:
+    return (time.time() - _cache["timestamp"]) < TTL_SEGUNDOS
+
+
+def _refrescar_cache():
+    _cache["enfermedades"] = supabase.table("enfermedades").select("*").execute().data
+    _cache["sintomas"] = supabase.table("sintomas").select("*").execute().data
+    _cache["relaciones"] = supabase.table("enfermedad_sintoma").select("*").execute().data
+    _cache["timestamp"] = time.time()
+
+
+def _obtener_datos():
+    """Devuelve (enfermedades, sintomas, relaciones) desde caché o Supabase."""
+    if not _cache_valida():
+        _refrescar_cache()
+    return _cache["enfermedades"], _cache["sintomas"], _cache["relaciones"]
+
+
+# ── Funciones de acceso individuales (mantenidas para compatibilidad) ─────────
 
 def obtener_enfermedades():
-    """Trae todas las enfermedades desde Supabase"""
-    response = supabase.table("enfermedades").select("*").execute()
-    return response.data
+    """Trae todas las enfermedades (con caché)."""
+    enfs, _, _ = _obtener_datos()
+    return enfs
 
 
 def obtener_sintomas():
-    """Trae todos los síntomas desde Supabase"""
-    response = supabase.table("sintomas").select("*").execute()
-    return response.data
+    """Trae todos los síntomas (con caché)."""
+    _, sins, _ = _obtener_datos()
+    return sins
 
 
 def obtener_relaciones():
-    """Trae las relaciones enfermedad-síntoma con sus probabilidades"""
-    response = supabase.table("enfermedad_sintoma").select("*").execute()
-    return response.data
+    """Trae las relaciones enfermedad-síntoma con sus probabilidades (con caché)."""
+    _, _, rels = _obtener_datos()
+    return rels
 
 
 def construir_red_bayesiana():
@@ -34,9 +70,7 @@ def construir_red_bayesiana():
     Construye la red bayesiana a partir de los datos en Supabase.
     Cada síntoma depende de la enfermedad (Enfermedad -> Síntoma).
     """
-    enfermedades = obtener_enfermedades()
-    sintomas = obtener_sintomas()
-    relaciones = obtener_relaciones()
+    enfermedades, sintomas, relaciones = _obtener_datos()
 
     print(f"Enfermedades cargadas: {len(enfermedades)}")
     print(f"Síntomas cargados: {len(sintomas)}")
@@ -47,14 +81,13 @@ def construir_red_bayesiana():
 
 def calcular_diagnostico(sintomas_ingresados: list):
     """
-    Función principal: recibe una lista de nombres de síntomas
-    y retorna las enfermedades más probables ordenadas por confianza.
+    Recibe una lista de nombres de síntomas y retorna las enfermedades más
+    probables ordenadas por confianza (Naive Bayes normalizado).
 
     sintomas_ingresados: lista de strings, ej: ["Tos", "Fiebre", "Dolor de garganta"]
     """
-    enfermedades = obtener_enfermedades()
-    relaciones = obtener_relaciones()
-    sintomas = obtener_sintomas()
+    # Una sola llamada al caché en lugar de tres llamadas independientes
+    enfermedades, sintomas, relaciones = _obtener_datos()
 
     # Mapeo de nombres a ids
     sintoma_nombre_a_id = {s["nombre"]: s["id"] for s in sintomas}
@@ -82,7 +115,8 @@ def calcular_diagnostico(sintomas_ingresados: list):
                 probabilidad *= relacion["probabilidad"]
                 sintomas_coincidentes += 1
             else:
-                probabilidad *= 0.05  # penalización si el síntoma no es típico
+                # Penalización: síntoma no es típico de esta enfermedad
+                probabilidad *= PENALIZACION_SINTOMA_AUSENTE
 
         if sintomas_coincidentes > 0:
             resultados.append({
@@ -101,9 +135,7 @@ def calcular_diagnostico(sintomas_ingresados: list):
             r["confianza"] = 0.0
 
     # Ordenar de mayor a menor confianza
-    resultados_ordenados = sorted(resultados, key=lambda x: x["confianza"], reverse=True)
-
-    return resultados_ordenados
+    return sorted(resultados, key=lambda x: x["confianza"], reverse=True)
 
 
 if __name__ == "__main__":
@@ -118,4 +150,9 @@ if __name__ == "__main__":
     resultado = calcular_diagnostico(sintomas_prueba)
 
     for r in resultado[:3]:
+        print(f"{r['enfermedad']}: {r['confianza']}% de confianza")
+
+    print("\n=== Segunda llamada (debe usar caché, sin queries a Supabase) ===")
+    resultado2 = calcular_diagnostico(["Fiebre", "Escalofríos"])
+    for r in resultado2[:3]:
         print(f"{r['enfermedad']}: {r['confianza']}% de confianza")

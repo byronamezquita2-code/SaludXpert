@@ -1,3 +1,4 @@
+// ── Configuración ─────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://bpisojfqhsaisfvnwhpr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_I0o7hKokgpc5hyIcBZeRQg_nLHEm60L';
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -8,13 +9,213 @@ let listaSintomas = [];
 let ultimoResultado = null;
 let usuarioActual = null;
 
-// ===== NAVEGACIÓN ENTRE PANTALLAS =====
+// ── Helper de fetch autenticado ───────────────────────────────────────────────
+// Incluye el JWT de Supabase en cada petición a nuestra API.
+async function apiFetch(path, options = {}) {
+  const { data: sessionData } = await supabaseClient.auth.getSession();
+  const token = sessionData?.session?.access_token;
+
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(options.headers || {}),
+  };
+
+  const response = await fetch(`${API_URL}${path}`, { ...options, headers });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error || `Error ${response.status}`);
+  }
+
+  return response.json();
+}
+
+// ── Modal personalizado (reemplaza alert / prompt) ────────────────────────────
+const appDialog = document.getElementById('app-dialog');
+const dialogTitle = document.getElementById('dialog-title');
+const dialogBody = document.getElementById('dialog-body');
+const dialogInput = document.getElementById('dialog-input');
+const dialogConfirm = document.getElementById('dialog-confirm');
+const dialogCancel = document.getElementById('dialog-cancel');
+
+/**
+ * Muestra un mensaje informativo (reemplaza alert).
+ * @param {string} titulo
+ * @param {string} mensaje
+ */
+function mostrarAlerta(titulo, mensaje) {
+  return new Promise(resolve => {
+    dialogTitle.textContent = titulo;
+    dialogBody.textContent = mensaje;
+    dialogInput.style.display = 'none';
+    dialogCancel.style.display = 'none';
+    dialogConfirm.textContent = 'Aceptar';
+
+    const onConfirm = () => {
+      appDialog.close();
+      dialogConfirm.removeEventListener('click', onConfirm);
+      resolve();
+    };
+    dialogConfirm.addEventListener('click', onConfirm);
+    appDialog.showModal();
+  });
+}
+
+/**
+ * Muestra un input de texto (reemplaza prompt).
+ * Resuelve con el valor ingresado o null si cancela.
+ * @param {string} titulo
+ * @param {string} placeholder
+ */
+function mostrarPrompt(titulo, placeholder = '') {
+  return new Promise(resolve => {
+    dialogTitle.textContent = titulo;
+    dialogBody.textContent = '';
+    dialogInput.style.display = 'block';
+    dialogInput.value = '';
+    dialogInput.placeholder = placeholder;
+    dialogCancel.style.display = '';
+    dialogConfirm.textContent = 'Aceptar';
+
+    const onConfirm = () => {
+      const valor = dialogInput.value.trim();
+      appDialog.close();
+      cleanup();
+      resolve(valor || null);
+    };
+    const onCancel = () => {
+      appDialog.close();
+      cleanup();
+      resolve(null);
+    };
+    function cleanup() {
+      dialogConfirm.removeEventListener('click', onConfirm);
+      dialogCancel.removeEventListener('click', onCancel);
+    }
+
+    dialogConfirm.addEventListener('click', onConfirm);
+    dialogCancel.addEventListener('click', onCancel);
+    appDialog.showModal();
+    setTimeout(() => dialogInput.focus(), 50);
+  });
+}
+
+// ── Navegación ────────────────────────────────────────────────────────────────
 function mostrarPantalla(id) {
   document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('activa'));
   document.getElementById(id).classList.add('activa');
+
+  // Actualizar estado activo del nav en la pantalla visible
+  document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('nav-link-active'));
+  const mapa = {
+    'pantalla-sintomas': 'nav-nueva',
+    'pantalla-resultado': 'nav-nueva',
+    'pantalla-historial': 'nav-historial',
+    'pantalla-admin': 'nav-admin',
+  };
+  const activo = mapa[id];
+  if (activo) {
+    document.querySelectorAll(`.${activo}`).forEach(l => l.classList.add('nav-link-active'));
+  }
 }
 
-// ===== USUARIO EN LA BARRA SUPERIOR =====
+// ── Sidebar y Topbar (generados una sola vez) ─────────────────────────────────
+function logoSVG() {
+  return `<svg class="w-7 h-7 text-primary" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 2L3 6v6c0 5 4 9 9 10 5-1 9-5 9-10V6l-9-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+    <path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+  </svg>`;
+}
+
+/**
+ * Construye el sidebar HTML para una pantalla.
+ * isAdmin: si es true muestra el enlace de Administración.
+ */
+function sidebarHTML(isAdmin) {
+  const adminLink = isAdmin
+    ? `<span class="nav-link nav-admin" id="nav-admin-link">
+         <span class="material-symbols-outlined mr-md">admin_panel_settings</span>
+         <span class="font-label-md text-label-md">Administración</span>
+       </span>`
+    : '';
+
+  return `
+    <div class="h-16 flex items-center px-6 gap-sm border-b border-outline-variant">
+      ${logoSVG()}
+      <span class="font-headline-sm text-headline-sm text-primary">SaludXpert</span>
+    </div>
+    <nav class="flex-1 flex flex-col gap-xs px-md pt-lg">
+      <span class="nav-link nav-nueva" id="nav-nueva-link">
+        <span class="material-symbols-outlined mr-md">add_circle</span>
+        <span class="font-label-md text-label-md">Nueva Consulta</span>
+      </span>
+      <span class="nav-link nav-historial" id="nav-historial-link">
+        <span class="material-symbols-outlined mr-md">history</span>
+        <span class="font-label-md text-label-md">Historial</span>
+      </span>
+      ${adminLink}
+    </nav>
+  `;
+}
+
+function topbarHTML() {
+  return `
+    <span class="text-label-md font-label-md text-on-surface-variant">Centro de Salud Salcajá</span>
+    <div class="flex items-center gap-md">
+      <div class="text-right">
+        <p class="text-label-md font-label-md text-on-surface leading-none topbar-usuario-nombre"></p>
+        <p class="text-xs text-on-secondary-container topbar-usuario-rol"></p>
+      </div>
+      <button class="btn-logout flex items-center text-on-surface-variant hover:text-error transition-colors" title="Cerrar sesión">
+        <span class="material-symbols-outlined">logout</span>
+      </button>
+    </div>
+  `;
+}
+
+function inyectarShell(isAdmin) {
+  const pantallas = ['sintomas', 'resultado', 'historial', 'admin'];
+  pantallas.forEach(p => {
+    const sidebar = document.getElementById(`sidebar-${p}`);
+    const topbar = document.getElementById(`topbar-${p}`);
+    if (sidebar) sidebar.innerHTML = sidebarHTML(isAdmin);
+    if (topbar) topbar.innerHTML = topbarHTML();
+  });
+  registrarEventosShell();
+}
+
+function registrarEventosShell() {
+  // Nav: Nueva Consulta
+  document.querySelectorAll('#nav-nueva-link').forEach(el =>
+    el.addEventListener('click', reiniciarConsulta));
+
+  // Nav: Historial
+  document.querySelectorAll('#nav-historial-link').forEach(el =>
+    el.addEventListener('click', async () => {
+      await cargarHistorial();
+      mostrarPantalla('pantalla-historial');
+    }));
+
+  // Nav: Admin
+  document.querySelectorAll('#nav-admin-link').forEach(el =>
+    el.addEventListener('click', async () => {
+      await cargarPanelAdmin();
+      mostrarPantalla('pantalla-admin');
+    }));
+
+  // Logout
+  document.querySelectorAll('.btn-logout').forEach(btn =>
+    btn.addEventListener('click', async () => {
+      await supabaseClient.auth.signOut();
+      usuarioActual = null;
+      document.getElementById('correo').value = '';
+      document.getElementById('contrasena').value = '';
+      mostrarPantalla('pantalla-login');
+    }));
+}
+
+// ── Topbar: nombre y rol del usuario ─────────────────────────────────────────
 function capitalizar(s) {
   if (!s) return '';
   return s.charAt(0).toUpperCase() + s.slice(1);
@@ -29,33 +230,18 @@ function actualizarTopbarUsuario() {
   });
 }
 
-async function cargarUsuarioActual(correo) {
-  usuarioActual = { correo, nombre: correo, rol: '' };
+// Usa el nuevo endpoint /me en lugar de descargar TODOS los usuarios
+async function cargarUsuarioActual() {
   try {
-    const resp = await fetch(`${API_URL}/api/usuarios`);
-    const usuarios = await resp.json();
-    const match = usuarios.find(u => u.correo === correo);
-    if (match) {
-      usuarioActual = { correo: match.correo, nombre: match.nombre, rol: match.rol };
-    }
-  } catch (error) {
-    console.error('No se pudo obtener el usuario actual:', error);
+    const data = await apiFetch('/api/usuarios/me');
+    usuarioActual = { correo: data.correo, nombre: data.nombre, rol: data.rol };
+  } catch {
+    // Si falla (usuario nuevo sin registro en tabla) mantenemos los datos mínimos del JWT
   }
   actualizarTopbarUsuario();
 }
 
-// ===== CERRAR SESIÓN =====
-document.querySelectorAll('.btn-logout').forEach(btn => {
-  btn.addEventListener('click', async () => {
-    await supabaseClient.auth.signOut();
-    usuarioActual = null;
-    document.getElementById('correo').value = '';
-    document.getElementById('contrasena').value = '';
-    mostrarPantalla('pantalla-login');
-  });
-});
-
-// ===== LOGIN =====
+// ── LOGIN ─────────────────────────────────────────────────────────────────────
 document.getElementById('form-login').addEventListener('submit', async (e) => {
   e.preventDefault();
 
@@ -66,34 +252,45 @@ document.getElementById('form-login').addEventListener('submit', async (e) => {
 
   const { data, error } = await supabaseClient.auth.signInWithPassword({
     email: correo,
-    password: contrasena
+    password: contrasena,
   });
 
   if (error) {
     mensajeError.textContent = 'Correo o contraseña incorrectos.';
-    console.error('Error de login:', error.message);
     return;
   }
 
-  console.log('Usuario autenticado:', data.user.email);
-  await cargarUsuarioActual(data.user.email);
+  await cargarUsuarioActual();
+  const esAdmin = usuarioActual?.rol === 'administrador';
+  inyectarShell(esAdmin);
   mostrarPantalla('pantalla-sintomas');
   cargarSintomas();
 });
 
-// ===== CARGAR SÍNTOMAS DESDE LA API =====
+// ── Recuperar contraseña ──────────────────────────────────────────────────────
+document.getElementById('link-recuperar').addEventListener('click', async () => {
+  const correo = await mostrarPrompt('Recuperar contraseña', 'tu@correo.com');
+  if (!correo) return;
+
+  const { error } = await supabaseClient.auth.resetPasswordForEmail(correo);
+  if (error) {
+    await mostrarAlerta('Error', 'No se pudo enviar el correo de recuperación.');
+  } else {
+    await mostrarAlerta('Correo enviado', 'Revisa tu bandeja de entrada para restablecer tu contraseña.');
+  }
+});
+
+// ── Síntomas ──────────────────────────────────────────────────────────────────
 async function cargarSintomas() {
   try {
-    const response = await fetch(`${API_URL}/api/sintomas`);
-    listaSintomas = await response.json();
+    listaSintomas = await apiFetch('/api/sintomas');
 
     const categorias = {
       respiratorio: document.getElementById('cat-respiratorio'),
       gastrointestinal: document.getElementById('cat-gastrointestinal'),
-      general: document.getElementById('cat-general')
+      general: document.getElementById('cat-general'),
     };
 
-    // Limpiar contenedores
     Object.values(categorias).forEach(c => c.innerHTML = '');
 
     listaSintomas.forEach(sintoma => {
@@ -109,11 +306,10 @@ async function cargarSintomas() {
     });
   } catch (error) {
     console.error('Error cargando síntomas:', error);
-    alert('No se pudo conectar con el servidor. Verifica que la API esté corriendo.');
+    await mostrarAlerta('Sin conexión', 'No se pudo conectar con el servidor. Verifica que la API esté corriendo.');
   }
 }
 
-// ===== SELECCIONAR/DESELECCIONAR SÍNTOMA =====
 function toggleSintoma(btn, nombre) {
   if (sintomasSeleccionados.includes(nombre)) {
     sintomasSeleccionados = sintomasSeleccionados.filter(s => s !== nombre);
@@ -125,31 +321,38 @@ function toggleSintoma(btn, nombre) {
   document.getElementById('contador-sintomas').textContent = `${sintomasSeleccionados.length} síntomas`;
 }
 
-// ===== ANALIZAR SÍNTOMAS =====
+// ── Analizar síntomas ─────────────────────────────────────────────────────────
 document.getElementById('btn-analizar').addEventListener('click', async () => {
   if (sintomasSeleccionados.length === 0) {
-    alert('Debe seleccionar al menos un síntoma antes de continuar.');
+    await mostrarAlerta('Sin síntomas', 'Debe seleccionar al menos un síntoma antes de continuar.');
     return;
   }
 
+  const btn = document.getElementById('btn-analizar');
+  btn.disabled = true;
+  btn.classList.add('btn-loading');
+  btn.innerHTML = `<span class="loading-spinner"></span> Analizando...`;
+
   try {
-    const response = await fetch(`${API_URL}/api/diagnosticar`, {
+    const resultado = await apiFetch('/api/diagnosticar', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sintomas: sintomasSeleccionados })
+      body: JSON.stringify({ sintomas: sintomasSeleccionados }),
     });
 
-    const resultado = await response.json();
     ultimoResultado = resultado;
     mostrarResultado(resultado);
     mostrarPantalla('pantalla-resultado');
   } catch (error) {
     console.error('Error al diagnosticar:', error);
-    alert('Error al procesar el diagnóstico. Intente nuevamente.');
+    await mostrarAlerta('Error', 'No se pudo procesar el diagnóstico. Intente nuevamente.');
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove('btn-loading');
+    btn.innerHTML = `Analizar Síntomas <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>`;
   }
 });
 
-// ===== MOSTRAR RESULTADO EN PANTALLA =====
+// ── Mostrar resultado ─────────────────────────────────────────────────────────
 function mostrarResultado(resultado) {
   const banner = document.getElementById('banner-advertencia');
   banner.style.display = resultado.confianza_suficiente ? 'none' : 'block';
@@ -157,8 +360,7 @@ function mostrarResultado(resultado) {
   const diagnosticos = resultado.diagnosticos;
   const principal = diagnosticos[0];
 
-  const principalDiv = document.getElementById('resultado-principal');
-  principalDiv.innerHTML = `
+  document.getElementById('resultado-principal').innerHTML = `
     <div class="nombre-enfermedad">${principal.enfermedad}</div>
     <div class="confianza-header">
       <span class="confianza-label">Nivel de confianza</span>
@@ -179,50 +381,43 @@ function mostrarResultado(resultado) {
   });
 }
 
-// ===== CONFIRMAR / DESCARTAR (desde pantalla de resultado) =====
+// ── Confirmar / Descartar ─────────────────────────────────────────────────────
 document.getElementById('btn-confirmar').addEventListener('click', async () => {
-  if (!ultimoResultado || !ultimoResultado.consulta_id) {
-    alert('No se encontró la consulta a confirmar.');
+  if (!ultimoResultado?.consulta_id) {
+    await mostrarAlerta('Error', 'No se encontró la consulta a confirmar.');
     return;
   }
 
   try {
-    await fetch(`${API_URL}/api/consultas/${ultimoResultado.consulta_id}`, {
+    await apiFetch(`/api/consultas/${ultimoResultado.consulta_id}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ decision_medico: 'confirmado' })
+      body: JSON.stringify({ decision_medico: 'confirmado' }),
     });
-    alert('Diagnóstico confirmado y registrado.');
+    await mostrarAlerta('Confirmado', 'Diagnóstico confirmado y registrado.');
     reiniciarConsulta();
-  } catch (error) {
-    console.error('Error al confirmar:', error);
-    alert('Error al guardar la confirmación.');
+  } catch {
+    await mostrarAlerta('Error', 'No se pudo guardar la confirmación.');
   }
 });
 
 document.getElementById('btn-descartar').addEventListener('click', async () => {
-  if (!ultimoResultado || !ultimoResultado.consulta_id) {
-    alert('No se encontró la consulta a descartar.');
+  if (!ultimoResultado?.consulta_id) {
+    await mostrarAlerta('Error', 'No se encontró la consulta a descartar.');
     return;
   }
 
-  const diagnosticoDefinitivo = prompt('Ingrese el diagnóstico definitivo:');
+  const diagnosticoDefinitivo = await mostrarPrompt('Diagnóstico definitivo', 'Escriba el diagnóstico del médico...');
   if (!diagnosticoDefinitivo) return;
 
   try {
-    await fetch(`${API_URL}/api/consultas/${ultimoResultado.consulta_id}`, {
+    await apiFetch(`/api/consultas/${ultimoResultado.consulta_id}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        decision_medico: 'descartado',
-        diagnostico_definitivo: diagnosticoDefinitivo
-      })
+      body: JSON.stringify({ decision_medico: 'descartado', diagnostico_definitivo: diagnosticoDefinitivo }),
     });
-    alert('Sugerencia descartada. Diagnóstico registrado: ' + diagnosticoDefinitivo);
+    await mostrarAlerta('Registrado', `Sugerencia descartada. Diagnóstico registrado: ${diagnosticoDefinitivo}`);
     reiniciarConsulta();
-  } catch (error) {
-    console.error('Error al descartar:', error);
-    alert('Error al guardar el descarte.');
+  } catch {
+    await mostrarAlerta('Error', 'No se pudo guardar el descarte.');
   }
 });
 
@@ -235,21 +430,18 @@ function reiniciarConsulta() {
   mostrarPantalla('pantalla-sintomas');
 }
 
-// ===== HISTORIAL DEL TURNO =====
+// ── Historial ─────────────────────────────────────────────────────────────────
 document.getElementById('btn-ver-historial').addEventListener('click', async () => {
   await cargarHistorial();
   mostrarPantalla('pantalla-historial');
 });
-
-document.getElementById('btn-ir-consulta').addEventListener('click', reiniciarConsulta);
 
 async function cargarHistorial() {
   const lista = document.getElementById('lista-historial');
   lista.innerHTML = '<p class="estado-vacio">Cargando...</p>';
 
   try {
-    const response = await fetch(`${API_URL}/api/consultas`);
-    const consultas = await response.json();
+    const consultas = await apiFetch('/api/consultas');
 
     if (consultas.length === 0) {
       lista.innerHTML = '<p class="estado-vacio">No hay consultas registradas en este turno.</p>';
@@ -283,7 +475,7 @@ async function cargarHistorial() {
 
       const detalle = div.querySelector('.historial-detalle');
 
-      div.addEventListener('click', (e) => {
+      div.addEventListener('click', async (e) => {
         if (e.target.closest('.historial-accion')) return;
 
         const abierto = detalle.style.display === 'block';
@@ -305,21 +497,16 @@ async function cargarHistorial() {
                 const accion = btn.dataset.accion;
 
                 if (accion === 'confirmar') {
-                  await fetch(`${API_URL}/api/consultas/${id}`, {
+                  await apiFetch(`/api/consultas/${id}`, {
                     method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ decision_medico: 'confirmado' })
+                    body: JSON.stringify({ decision_medico: 'confirmado' }),
                   });
                 } else {
-                  const diagnosticoDefinitivo = prompt('Ingrese el diagnóstico definitivo:');
+                  const diagnosticoDefinitivo = await mostrarPrompt('Diagnóstico definitivo', 'Escriba el diagnóstico del médico...');
                   if (!diagnosticoDefinitivo) return;
-                  await fetch(`${API_URL}/api/consultas/${id}`, {
+                  await apiFetch(`/api/consultas/${id}`, {
                     method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      decision_medico: 'descartado',
-                      diagnostico_definitivo: diagnosticoDefinitivo
-                    })
+                    body: JSON.stringify({ decision_medico: 'descartado', diagnostico_definitivo: diagnosticoDefinitivo }),
                   });
                 }
                 await cargarHistorial();
@@ -340,66 +527,47 @@ async function cargarHistorial() {
   }
 }
 
-// ===== RECUPERAR CONTRASEÑA =====
-document.getElementById('link-recuperar').addEventListener('click', async () => {
-  const correo = prompt('Ingresa tu correo electrónico para recuperar tu contraseña:');
-
-  if (!correo) return;
-
-  const { error } = await supabaseClient.auth.resetPasswordForEmail(correo);
-
-  if (error) {
-    alert('Error al enviar el correo de recuperación: ' + error.message);
-  } else {
-    alert('Se ha enviado un enlace de recuperación a tu correo electrónico.');
-  }
-});
-
-// ===== PANEL DE ADMINISTRACIÓN =====
-document.getElementById('btn-ir-admin').addEventListener('click', async () => {
-  await cargarPanelAdmin();
-  mostrarPantalla('pantalla-admin');
-});
-
+// ── Panel de administración ───────────────────────────────────────────────────
 document.getElementById('btn-agregar-usuario').addEventListener('click', async () => {
-  const nombre = prompt('Nombre completo del usuario:');
+  const nombre = await mostrarPrompt('Nombre del usuario', 'Nombre completo');
   if (!nombre) return;
 
-  const correo = prompt('Correo electrónico:');
+  const correo = await mostrarPrompt('Correo electrónico', 'usuario@salud.gob.gt');
   if (!correo) return;
 
-  const rol = prompt('Rol (medico / enfermeria / administrador):');
+  const rol = await mostrarPrompt('Rol', 'medico / enfermeria / administrador');
   if (!rol || !['medico', 'enfermeria', 'administrador'].includes(rol)) {
-    alert('Rol inválido. Debe ser: medico, enfermeria o administrador.');
+    await mostrarAlerta('Rol inválido', 'Debe ser: medico, enfermeria o administrador.');
     return;
   }
 
   try {
-    await fetch(`${API_URL}/api/usuarios`, {
+    await apiFetch('/api/usuarios', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nombre, correo, rol })
+      body: JSON.stringify({ nombre, correo, rol }),
     });
-    alert('Usuario agregado correctamente. Recuerda crear también su acceso en Supabase Auth.');
+    await mostrarAlerta('Usuario agregado', 'Se envió la invitación por correo al nuevo usuario.');
     await cargarPanelAdmin();
   } catch (error) {
-    console.error('Error al agregar usuario:', error);
-    alert('Error al agregar el usuario.');
+    await mostrarAlerta('Error', error.message || 'No se pudo agregar el usuario.');
   }
 });
 
 async function cargarPanelAdmin() {
   try {
-    // Cargar usuarios
-    const responseUsuarios = await fetch(`${API_URL}/api/usuarios`);
-    const usuarios = await responseUsuarios.json();
+    const [usuarios, consultas] = await Promise.all([
+      apiFetch('/api/usuarios'),
+      apiFetch('/api/consultas'),
+    ]);
 
-    const activos = usuarios.filter(u => u.activo).length;
-    document.getElementById('stat-usuarios-activos').textContent = activos;
+    // Estadísticas
+    document.getElementById('stat-usuarios-activos').textContent = usuarios.filter(u => u.activo).length;
+    const hoy = new Date().toISOString().split('T')[0];
+    document.getElementById('stat-consultas-hoy').textContent = consultas.filter(c => c.fecha.startsWith(hoy)).length;
 
+    // Tabla de usuarios
     const tbody = document.getElementById('tabla-usuarios-body');
     tbody.innerHTML = '';
-
     usuarios.forEach(u => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
@@ -416,29 +584,16 @@ async function cargarPanelAdmin() {
       tbody.appendChild(tr);
     });
 
-    // Agregar eventos a los botones de activar/desactivar (solo dentro de la tabla)
     tbody.querySelectorAll('.btn-toggle').forEach(btn => {
       btn.addEventListener('click', async () => {
-        const id = btn.dataset.id;
         const activoActual = btn.dataset.activo === 'true';
-
-        await fetch(`${API_URL}/api/usuarios/${id}`, {
+        await apiFetch(`/api/usuarios/${btn.dataset.id}`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ activo: !activoActual })
+          body: JSON.stringify({ activo: !activoActual }),
         });
-
         await cargarPanelAdmin();
       });
     });
-
-    // Cargar estadística de consultas hoy
-    const responseConsultas = await fetch(`${API_URL}/api/consultas`);
-    const consultas = await responseConsultas.json();
-
-    const hoy = new Date().toISOString().split('T')[0];
-    const consultasHoy = consultas.filter(c => c.fecha.startsWith(hoy)).length;
-    document.getElementById('stat-consultas-hoy').textContent = consultasHoy;
 
   } catch (error) {
     console.error('Error cargando panel admin:', error);

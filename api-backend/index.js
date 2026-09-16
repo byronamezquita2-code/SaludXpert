@@ -9,56 +9,122 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+// ── CORS ──────────────────────────────────────────────────────────────────────
+// Solo el dominio del frontend puede llamar a esta API.
+// Configura ALLOWED_ORIGIN en el .env (puede ser una lista separada por comas).
+const allowedOrigins = (process.env.ALLOWED_ORIGIN || 'http://127.0.0.1:5500')
+  .split(',')
+  .map(o => o.trim());
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Permitir peticiones sin origin (Postman, curl, misma red interna)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS: origin no permitido — ${origin}`));
+    }
+  },
+  methods: ['GET', 'POST', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
 app.use(express.json());
 
+// ── Supabase ──────────────────────────────────────────────────────────────────
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 const supabaseAdmin = createClient(supabaseUrl, process.env.SUPABASE_SERVICE_KEY);
 
-// Ruta de prueba
+// ── Middleware: autenticación ─────────────────────────────────────────────────
+// Verifica que el JWT de Supabase es válido antes de servir cualquier ruta
+// protegida. Adjunta el usuario en req.authUser.
+async function requireAuth(req, res, next) {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+  if (!token) {
+    return res.status(401).json({ error: 'No autenticado — falta el token.' });
+  }
+
+  const { data, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !data?.user) {
+    return res.status(401).json({ error: 'Token inválido o expirado.' });
+  }
+
+  req.authUser = data.user;
+  next();
+}
+
+// ── Middleware: solo administradores ─────────────────────────────────────────
+// Debe usarse DESPUÉS de requireAuth.
+async function requireAdmin(req, res, next) {
+  try {
+    const { data, error } = await supabase
+      .from('usuarios')
+      .select('rol')
+      .eq('auth_id', req.authUser.id)
+      .single();
+
+    if (error || !data) {
+      return res.status(403).json({ error: 'Usuario no encontrado en el sistema.' });
+    }
+    if (data.rol !== 'administrador') {
+      return res.status(403).json({ error: 'Acceso denegado — se requiere rol administrador.' });
+    }
+    req.rolUsuario = data.rol;
+    next();
+  } catch (err) {
+    res.status(500).json({ error: 'Error verificando permisos.' });
+  }
+}
+
+// ── Ruta de salud ─────────────────────────────────────────────────────────────
 app.get('/', (req, res) => {
   res.json({ mensaje: 'API SaludXpert funcionando correctamente' });
 });
 
-// Ruta: obtener lista de síntomas agrupados por categoría
-app.get('/api/sintomas', async (req, res) => {
+// ── Síntomas ──────────────────────────────────────────────────────────────────
+app.get('/api/sintomas', requireAuth, async (req, res) => {
   try {
     const { data, error } = await supabase.from('sintomas').select('*');
     if (error) throw error;
     res.json(data);
   } catch (error) {
-    console.error('ERROR COMPLETO:', error);
-    res.status(500).json({ error: error.message, stack: error.stack, cause: error.cause?.message });
+    console.error('Error /api/sintomas:', error.message);
+    res.status(500).json({ error: 'Error al obtener síntomas.' });
   }
 });
 
-// Ruta: obtener lista de enfermedades
-app.get('/api/enfermedades', async (req, res) => {
+// ── Enfermedades ──────────────────────────────────────────────────────────────
+app.get('/api/enfermedades', requireAuth, async (req, res) => {
   try {
     const { data, error } = await supabase.from('enfermedades').select('*');
     if (error) throw error;
     res.json(data);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error /api/enfermedades:', error.message);
+    res.status(500).json({ error: 'Error al obtener enfermedades.' });
   }
 });
 
-// Ruta: enviar síntomas al motor de inferencia  y obtener diagnóstico
-app.post('/api/diagnosticar', async (req, res) => {
+// ── Diagnóstico ───────────────────────────────────────────────────────────────
+app.post('/api/diagnosticar', requireAuth, async (req, res) => {
   try {
     const { sintomas, usuario_id } = req.body;
 
     if (!sintomas || sintomas.length === 0) {
-      return res.status(400).json({ error: 'Debe proporcionar al menos un síntoma' });
+      return res.status(400).json({ error: 'Debe proporcionar al menos un síntoma.' });
     }
 
-    // Llamar al motor de inferencia en Flask
-      const MOTOR_URL = process.env.MOTOR_URL || 'http://localhost:5000';
-      const response = await axios.post(`${MOTOR_URL}/api/diagnosticar`, {
-      sintomas: sintomas
-    });
+    // Llamar al motor de inferencia en Flask con el secret interno
+    const MOTOR_URL = process.env.MOTOR_URL || 'http://localhost:5000';
+    const response = await axios.post(
+      `${MOTOR_URL}/api/diagnosticar`,
+      { sintomas },
+      { headers: { 'X-Internal-Secret': process.env.INTERNAL_SECRET || '' } }
+    );
 
     const resultado = response.data;
 
@@ -67,7 +133,7 @@ app.post('/api/diagnosticar', async (req, res) => {
       {
         usuario_id: usuario_id || null,
         sintomas_ingresados: sintomas,
-        resultado: resultado
+        resultado: resultado,
       }
     ]).select();
 
@@ -77,17 +143,17 @@ app.post('/api/diagnosticar', async (req, res) => {
 
     res.json({
       ...resultado,
-      consulta_id: data ? data[0].id : null
+      consulta_id: data ? data[0].id : null,
     });
 
   } catch (error) {
-    console.error(error.message);
-    res.status(500).json({ error: 'Error al procesar el diagnóstico' });
+    console.error('Error /api/diagnosticar:', error.message);
+    res.status(500).json({ error: 'Error al procesar el diagnóstico.' });
   }
 });
 
-// Ruta: obtener historial de consultas
-app.get('/api/consultas', async (req, res) => {
+// ── Historial de consultas ────────────────────────────────────────────────────
+app.get('/api/consultas', requireAuth, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('consultas')
@@ -97,12 +163,13 @@ app.get('/api/consultas', async (req, res) => {
     if (error) throw error;
     res.json(data);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error /api/consultas:', error.message);
+    res.status(500).json({ error: 'Error al obtener historial.' });
   }
 });
 
-// Ruta: actualizar la decisión del médico sobre una consulta
-app.patch('/api/consultas/:id', async (req, res) => {
+// ── Actualizar decisión médica ────────────────────────────────────────────────
+app.patch('/api/consultas/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { decision_medico, diagnostico_definitivo } = req.body;
@@ -110,8 +177,8 @@ app.patch('/api/consultas/:id', async (req, res) => {
     const { data, error } = await supabase
       .from('consultas')
       .update({
-        decision_medico: decision_medico,
-        diagnostico_definitivo: diagnostico_definitivo || null
+        decision_medico,
+        diagnostico_definitivo: diagnostico_definitivo || null,
       })
       .eq('id', id)
       .select();
@@ -119,12 +186,32 @@ app.patch('/api/consultas/:id', async (req, res) => {
     if (error) throw error;
     res.json(data[0]);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error PATCH /api/consultas:', error.message);
+    res.status(500).json({ error: 'Error al actualizar la consulta.' });
   }
 });
 
-// Ruta: obtener todos los usuarios
-app.get('/api/usuarios', async (req, res) => {
+// ── Perfil del usuario actual ─────────────────────────────────────────────────
+// Evita que el frontend descargue TODOS los usuarios solo para mostrar el nombre.
+app.get('/api/usuarios/me', requireAuth, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('usuarios')
+      .select('id, nombre, correo, rol, activo')
+      .eq('auth_id', req.authUser.id)
+      .single();
+
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Usuario no encontrado.' });
+    res.json(data);
+  } catch (error) {
+    console.error('Error /api/usuarios/me:', error.message);
+    res.status(500).json({ error: 'Error al obtener perfil.' });
+  }
+});
+
+// ── Gestión de usuarios (solo administrador) ──────────────────────────────────
+app.get('/api/usuarios', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('usuarios')
@@ -134,44 +221,42 @@ app.get('/api/usuarios', async (req, res) => {
     if (error) throw error;
     res.json(data);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error GET /api/usuarios:', error.message);
+    res.status(500).json({ error: 'Error al obtener usuarios.' });
   }
 });
 
-// Ruta: crear un nuevo usuario e invitarlo por correo
-app.post('/api/usuarios', async (req, res) => {
+app.post('/api/usuarios', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { nombre, correo, rol } = req.body;
 
-    // 1. Invitar al usuario mediante Supabase Auth (le llega correo automático)
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.inviteUserByEmail(correo, {
-      data: { nombre, rol }
-    });
+    if (!['medico', 'enfermeria', 'administrador'].includes(rol)) {
+      return res.status(400).json({ error: 'Rol inválido.' });
+    }
+
+    // Invitar al usuario mediante Supabase Auth (le llega correo automático)
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
+      correo,
+      { data: { nombre, rol } }
+    );
 
     if (authError) throw authError;
 
-    // 2. Guardar el registro en la tabla usuarios con su auth_id
+    // Guardar el registro en la tabla usuarios con su auth_id
     const { data, error } = await supabase
       .from('usuarios')
-      .insert([{
-        nombre,
-        correo,
-        rol,
-        activo: true,
-        auth_id: authData.user.id
-      }])
+      .insert([{ nombre, correo, rol, activo: true, auth_id: authData.user.id }])
       .select();
 
     if (error) throw error;
     res.json(data[0]);
   } catch (error) {
-    console.error('Error al invitar usuario:', error.message);
+    console.error('Error POST /api/usuarios:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Ruta: activar/desactivar un usuario
-app.patch('/api/usuarios/:id', async (req, res) => {
+app.patch('/api/usuarios/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { activo } = req.body;
@@ -185,10 +270,12 @@ app.patch('/api/usuarios/:id', async (req, res) => {
     if (error) throw error;
     res.json(data[0]);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error PATCH /api/usuarios:', error.message);
+    res.status(500).json({ error: 'Error al actualizar usuario.' });
   }
 });
 
+// ── Iniciar servidor ──────────────────────────────────────────────────────────
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Servidor corriendo en puerto ${PORT}`);
+  console.log(`Servidor SaludXpert corriendo en puerto ${PORT}`);
 });

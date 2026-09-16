@@ -1,5 +1,4 @@
 
-
 html, body { margin: 0; padding: 0; }
 body { font-family: 'Inter', sans-serif; }
 ::-webkit-scrollbar { display: none; }
@@ -124,7 +123,29 @@ body { font-family: 'Inter', sans-serif; }
 }
 @media (max-width: 900px) { .sticky-actionbar { left: 72px; } }
 
-/* ============ RESULTADO (inyectado por JS) ============ */
+/* ── Estado de carga del botón Analizar ── */
+.btn-loading {
+  opacity: 0.75;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.loading-spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ============ RESULTADO ============ */
 .banner-advertencia {
   width: 100%;
   background: #ffdad6;
@@ -208,7 +229,7 @@ body { font-family: 'Inter', sans-serif; }
 }
 .link-secundario:hover { text-decoration: underline; }
 
-/* ============ HISTORIAL (inyectado por JS) ============ */
+/* ============ HISTORIAL ============ */
 .historial-card {
   background: #ffffff;
   border-radius: 12px;
@@ -247,7 +268,7 @@ body { font-family: 'Inter', sans-serif; }
   border-radius: 12px;
 }
 
-/* ============ ADMIN (inyectado por JS) ============ */
+/* ============ ADMIN ============ */
 .rol-badge {
   display: inline-flex;
   padding: 4px 12px;
@@ -282,7 +303,91 @@ body { font-family: 'Inter', sans-serif; }
   color: #1b1c1c;
 }
 
-/* ============ AJUSTES MÓVIL (iPhone / pantallas < 640px) ============ */
+/* ============ MODAL (<dialog>) ============ */
+#app-dialog {
+  border: none;
+  border-radius: 16px;
+  padding: 0;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  max-width: 400px;
+  width: 90%;
+  outline: none;
+}
+
+#app-dialog::backdrop {
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(2px);
+}
+
+.dialog-content {
+  padding: 28px 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dialog-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1b1c1c;
+  margin: 0;
+}
+
+.dialog-body {
+  font-size: 14px;
+  color: #424752;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.dialog-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid #c2c6d4;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #1b1c1c;
+  background: #fcf9f8;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+.dialog-input:focus { border-color: #004d99; }
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.dialog-btn-cancel {
+  padding: 8px 20px;
+  border-radius: 8px;
+  border: 1.5px solid #c2c6d4;
+  background: transparent;
+  color: #424752;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.dialog-btn-cancel:hover { background: #eae7e7; }
+
+.dialog-btn-confirm {
+  padding: 8px 20px;
+  border-radius: 8px;
+  border: none;
+  background: #004d99;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.dialog-btn-confirm:hover { background: #00468c; }
+
+/* ============ MÓVIL (< 640px) ============ */
 @media (max-width: 640px) {
   .btn-sintoma {
     height: auto;

@@ -14,6 +14,19 @@ tailwind.config={theme:{extend:{"colors":{"on-primary":"#ffffff","on-secondary-c
 </head>
 <body class="bg-surface-container font-body-md text-on-surface">
 
+<!-- ============ MODAL REUTILIZABLE ============ -->
+<dialog id="app-dialog">
+  <div class="dialog-content">
+    <h3 class="dialog-title" id="dialog-title"></h3>
+    <p class="dialog-body" id="dialog-body"></p>
+    <input class="dialog-input" id="dialog-input" type="text" placeholder="">
+    <div class="dialog-actions">
+      <button class="dialog-btn-cancel" id="dialog-cancel">Cancelar</button>
+      <button class="dialog-btn-confirm" id="dialog-confirm">Aceptar</button>
+    </div>
+  </div>
+</dialog>
+
 <!-- ============ LOGIN ============ -->
 <div id="pantalla-login" class="pantalla activa">
   <main class="flex min-h-screen items-center justify-center p-margin-mobile">
@@ -60,30 +73,9 @@ tailwind.config={theme:{extend:{"colors":{"on-primary":"#ffffff","on-secondary-c
 <!-- ============ NUEVA CONSULTA (síntomas) ============ -->
 <div id="pantalla-sintomas" class="pantalla">
   <div class="app-shell">
-    <aside class="sidebar">
-      <div class="h-16 flex items-center px-6 gap-sm border-b border-outline-variant">
-        <svg class="w-7 h-7 text-primary" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L3 6v6c0 5 4 9 9 10 5-1 9-5 9-10V6l-9-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-        <span class="font-headline-sm text-headline-sm text-primary">SaludXpert</span>
-      </div>
-      <nav class="flex-1 flex flex-col gap-xs px-md pt-lg">
-        <span class="nav-link nav-link-active"><span class="material-symbols-outlined mr-md">add_circle</span><span class="font-label-md text-label-md">Nueva Consulta</span></span>
-        <span class="nav-link" onclick="cargarHistorial().then(()=>mostrarPantalla('pantalla-historial'))"><span class="material-symbols-outlined mr-md">history</span><span class="font-label-md text-label-md">Historial</span></span>
-        <span class="nav-link" onclick="cargarPanelAdmin().then(()=>mostrarPantalla('pantalla-admin'))"><span class="material-symbols-outlined mr-md">admin_panel_settings</span><span class="font-label-md text-label-md">Administración</span></span>
-      </nav>
-    </aside>
+    <aside class="sidebar" id="sidebar-sintomas"></aside>
     <div class="shell-main">
-      <header class="topbar justify-between">
-        <span class="text-label-md font-label-md text-on-surface-variant">Centro de Salud Salcajá</span>
-        <div class="flex items-center gap-md">
-          <div class="text-right">
-            <p class="text-label-md font-label-md text-on-surface leading-none topbar-usuario-nombre"></p>
-            <p class="text-xs text-on-secondary-container topbar-usuario-rol"></p>
-          </div>
-          <button class="btn-logout flex items-center text-on-surface-variant hover:text-error transition-colors" title="Cerrar sesión">
-            <span class="material-symbols-outlined">logout</span>
-          </button>
-        </div>
-      </header>
+      <header class="topbar justify-between" id="topbar-sintomas"></header>
       <main class="shell-content">
         <div class="flex flex-col w-full relative pb-24">
           <div class="px-4 md:px-margin-desktop py-xl flex flex-wrap gap-md justify-between items-center mb-lg">
@@ -142,30 +134,9 @@ tailwind.config={theme:{extend:{"colors":{"on-primary":"#ffffff","on-secondary-c
 <!-- ============ RESULTADO ============ -->
 <div id="pantalla-resultado" class="pantalla">
   <div class="app-shell">
-    <aside class="sidebar">
-      <div class="h-16 flex items-center px-6 gap-sm border-b border-outline-variant">
-        <svg class="w-7 h-7 text-primary" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L3 6v6c0 5 4 9 9 10 5-1 9-5 9-10V6l-9-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-        <span class="font-headline-sm text-headline-sm text-primary">SaludXpert</span>
-      </div>
-      <nav class="flex-1 flex flex-col gap-xs px-md pt-lg">
-        <span class="nav-link" onclick="reiniciarConsulta()"><span class="material-symbols-outlined mr-md">add_circle</span><span class="font-label-md text-label-md">Nueva Consulta</span></span>
-        <span class="nav-link" onclick="cargarHistorial().then(()=>mostrarPantalla('pantalla-historial'))"><span class="material-symbols-outlined mr-md">history</span><span class="font-label-md text-label-md">Historial</span></span>
-        <span class="nav-link" onclick="cargarPanelAdmin().then(()=>mostrarPantalla('pantalla-admin'))"><span class="material-symbols-outlined mr-md">admin_panel_settings</span><span class="font-label-md text-label-md">Administración</span></span>
-      </nav>
-    </aside>
+    <aside class="sidebar" id="sidebar-resultado"></aside>
     <div class="shell-main">
-      <header class="topbar justify-between">
-        <span class="text-label-md font-label-md text-on-surface-variant">Centro de Salud Salcajá</span>
-        <div class="flex items-center gap-md">
-          <div class="text-right">
-            <p class="text-label-md font-label-md text-on-surface leading-none topbar-usuario-nombre"></p>
-            <p class="text-xs text-on-secondary-container topbar-usuario-rol"></p>
-          </div>
-          <button class="btn-logout flex items-center text-on-surface-variant hover:text-error transition-colors" title="Cerrar sesión">
-            <span class="material-symbols-outlined">logout</span>
-          </button>
-        </div>
-      </header>
+      <header class="topbar justify-between" id="topbar-resultado"></header>
       <main class="shell-content">
         <div class="flex flex-col w-full px-4 md:px-margin-desktop py-lg gap-lg">
 
@@ -177,7 +148,6 @@ tailwind.config={theme:{extend:{"colors":{"on-primary":"#ffffff","on-secondary-c
           <div class="grid grid-cols-12 gap-gutter">
             <div class="col-span-12 lg:col-span-8 flex flex-col gap-md">
               <div id="resultado-principal" class="bg-surface-container-lowest rounded-xl p-lg shadow-md"></div>
-
               <p class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider mt-sm">Diagnósticos alternativos</p>
               <div id="resultados-alternativos" class="grid grid-cols-1 md:grid-cols-2 gap-gutter"></div>
             </div>
@@ -219,30 +189,9 @@ tailwind.config={theme:{extend:{"colors":{"on-primary":"#ffffff","on-secondary-c
 <!-- ============ HISTORIAL ============ -->
 <div id="pantalla-historial" class="pantalla">
   <div class="app-shell">
-    <aside class="sidebar">
-      <div class="h-16 flex items-center px-6 gap-sm border-b border-outline-variant">
-        <svg class="w-7 h-7 text-primary" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L3 6v6c0 5 4 9 9 10 5-1 9-5 9-10V6l-9-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-        <span class="font-headline-sm text-headline-sm text-primary">SaludXpert</span>
-      </div>
-      <nav class="flex-1 flex flex-col gap-xs px-md pt-lg">
-        <span class="nav-link" id="btn-ir-consulta"><span class="material-symbols-outlined mr-md">add_circle</span><span class="font-label-md text-label-md">Nueva Consulta</span></span>
-        <span class="nav-link nav-link-active"><span class="material-symbols-outlined mr-md">history</span><span class="font-label-md text-label-md">Historial</span></span>
-        <span class="nav-link" id="btn-ir-admin"><span class="material-symbols-outlined mr-md">admin_panel_settings</span><span class="font-label-md text-label-md">Administración</span></span>
-      </nav>
-    </aside>
+    <aside class="sidebar" id="sidebar-historial"></aside>
     <div class="shell-main">
-      <header class="topbar justify-between">
-        <span class="text-label-md font-label-md text-on-surface-variant">Centro de Salud Salcajá</span>
-        <div class="flex items-center gap-md">
-          <div class="text-right">
-            <p class="text-label-md font-label-md text-on-surface leading-none topbar-usuario-nombre"></p>
-            <p class="text-xs text-on-secondary-container topbar-usuario-rol"></p>
-          </div>
-          <button class="btn-logout flex items-center text-on-surface-variant hover:text-error transition-colors" title="Cerrar sesión">
-            <span class="material-symbols-outlined">logout</span>
-          </button>
-        </div>
-      </header>
+      <header class="topbar justify-between" id="topbar-historial"></header>
       <main class="shell-content">
         <div class="flex flex-col w-full p-4 md:p-margin-desktop gap-xl max-w-7xl mx-auto">
           <div class="flex flex-col gap-sm">
@@ -259,30 +208,9 @@ tailwind.config={theme:{extend:{"colors":{"on-primary":"#ffffff","on-secondary-c
 <!-- ============ ADMIN ============ -->
 <div id="pantalla-admin" class="pantalla">
   <div class="app-shell">
-    <aside class="sidebar">
-      <div class="h-16 flex items-center px-6 gap-sm border-b border-outline-variant">
-        <svg class="w-7 h-7 text-primary" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L3 6v6c0 5 4 9 9 10 5-1 9-5 9-10V6l-9-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-        <span class="font-headline-sm text-headline-sm text-primary">SaludXpert</span>
-      </div>
-      <nav class="flex-1 flex flex-col gap-xs px-md pt-lg">
-        <span class="nav-link" onclick="reiniciarConsulta()"><span class="material-symbols-outlined mr-md">add_circle</span><span class="font-label-md text-label-md">Nueva Consulta</span></span>
-        <span class="nav-link" onclick="cargarHistorial().then(()=>mostrarPantalla('pantalla-historial'))"><span class="material-symbols-outlined mr-md">history</span><span class="font-label-md text-label-md">Historial</span></span>
-        <span class="nav-link nav-link-active"><span class="material-symbols-outlined mr-md">admin_panel_settings</span><span class="font-label-md text-label-md">Administración</span></span>
-      </nav>
-    </aside>
+    <aside class="sidebar" id="sidebar-admin"></aside>
     <div class="shell-main">
-      <header class="topbar justify-between">
-        <span class="text-label-md font-label-md text-on-surface-variant">Centro de Salud Salcajá</span>
-        <div class="flex items-center gap-md">
-          <div class="text-right">
-            <p class="text-label-md font-label-md text-on-surface leading-none topbar-usuario-nombre"></p>
-            <p class="text-xs text-on-secondary-container topbar-usuario-rol"></p>
-          </div>
-          <button class="btn-logout flex items-center text-on-surface-variant hover:text-error transition-colors" title="Cerrar sesión">
-            <span class="material-symbols-outlined">logout</span>
-          </button>
-        </div>
-      </header>
+      <header class="topbar justify-between" id="topbar-admin"></header>
       <main class="shell-content">
         <div class="flex flex-col w-full px-4 md:px-margin-desktop pb-xl">
           <div class="flex items-center justify-between py-xl flex-wrap gap-md">
