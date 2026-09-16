@@ -1,164 +1,308 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SaludXpert — Centro de Salud de Salcajá</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SaludXpert — Centro de Salud de Salcajá</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script id="tailwind-config">
+tailwind.config={theme:{extend:{"colors":{"on-primary":"#ffffff","on-secondary-container":"#626567","tertiary-fixed-dim":"#88d982","primary-fixed-dim":"#a9c7ff","tertiary-fixed":"#a3f69c","on-secondary-fixed-variant":"#44474a","background":"#fcf9f8","surface-container-lowest":"#ffffff","surface-container-high":"#eae7e7","inverse-on-surface":"#f3f0ef","on-primary-fixed-variant":"#00468c","on-tertiary-fixed":"#002204","on-background":"#1b1c1c","on-error-container":"#93000a","error-container":"#ffdad6","primary-container":"#1565c0","on-tertiary-container":"#a5f99e","primary-fixed":"#d6e3ff","secondary-container":"#e0e3e6","on-surface-variant":"#424752","secondary-fixed":"#e0e3e6","inverse-primary":"#a9c7ff","on-secondary":"#ffffff","surface-variant":"#e5e2e1","surface-bright":"#fcf9f8","primary":"#004d99","surface-dim":"#dcd9d9","error":"#ba1a1a","tertiary-container":"#25752b","inverse-surface":"#303030","surface":"#fcf9f8","on-secondary-fixed":"#191c1e","surface-container":"#f0eded","on-surface":"#1b1c1c","tertiary":"#005c15","on-tertiary":"#ffffff","secondary-fixed-dim":"#c4c7ca","on-primary-container":"#dae5ff","surface-tint":"#005db7","outline":"#727783","surface-container-low":"#f6f3f2","surface-container-highest":"#e5e2e1","on-error":"#ffffff","secondary":"#5b5f61","on-tertiary-fixed-variant":"#005312","on-primary-fixed":"#001b3d","outline-variant":"#c2c6d4"},"borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},"spacing":{"gutter":"16px","lg":"24px","xl":"32px","md":"16px","unit":"4px","sm":"8px","margin-mobile":"16px","xs":"4px","margin-desktop":"32px"},"fontFamily":{"label-md":["Inter"],"body-lg":["Inter"],"headline-md-mobile":["Inter"],"headline-md":["Inter"],"display-lg":["Inter"],"headline-sm":["Inter"],"body-md":["Inter"]},"fontSize":{"label-md":["12px",{"lineHeight":"16px","fontWeight":"600"}],"body-lg":["16px",{"lineHeight":"24px","fontWeight":"400"}],"headline-md-mobile":["20px",{"lineHeight":"28px","fontWeight":"600"}],"headline-md":["24px",{"lineHeight":"32px","letterSpacing":"-0.01em","fontWeight":"600"}],"display-lg":["32px",{"lineHeight":"40px","letterSpacing":"-0.02em","fontWeight":"700"}],"headline-sm":["20px",{"lineHeight":"28px","fontWeight":"600"}],"body-md":["14px",{"lineHeight":"20px","fontWeight":"400"}]}}}}
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="bg-surface-container font-body-md text-on-surface">
 
-  <!-- PANTALLA: LOGIN -->
-  <div id="pantalla-login" class="pantalla activa">
-    <div class="login-card">
-      <div class="marca">
-        <svg class="marca-icono" width="34" height="34" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 2L3 6v6c0 5 4 9 9 10 5-1 9-5 9-10V6l-9-4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
-          <path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+<!-- ============ LOGIN ============ -->
+<div id="pantalla-login" class="pantalla activa">
+  <main class="flex min-h-screen items-center justify-center p-margin-mobile">
+    <div class="w-full max-w-md p-10 bg-surface-container-lowest rounded-xl shadow-lg flex flex-col items-center">
+      <div class="mb-8 flex flex-col items-center">
+        <svg class="w-16 h-16 mb-3 text-primary" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L3 6v6c0 5 4 9 9 10 5-1 9-5 9-10V6l-9-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
-        <span class="marca-texto">SaludXpert</span>
+        <h1 class="text-display-lg text-primary text-center">SaludXpert</h1>
       </div>
-      <p class="subtitulo">Centro de Salud de Salcajá</p>
-
-      <form id="form-login">
-        <label for="correo">Correo electrónico</label>
-        <input type="email" id="correo" placeholder="usuario@salud.gob.gt" required>
-
-        <label for="contrasena">Contraseña</label>
-        <input type="password" id="contrasena" placeholder="••••••••" required>
-
-        <button type="submit" class="btn-primario">Iniciar sesión</button>
-        <p class="link-recuperar" id="link-recuperar">¿Olvidaste tu contraseña?</p>
+      <form id="form-login" class="w-full flex flex-col gap-6">
+        <div class="flex flex-col gap-2">
+          <label class="text-label-md text-on-surface" for="correo">Correo electrónico</label>
+          <div class="relative">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">mail</span>
+            <input class="w-full pl-10 pr-4 py-3 bg-surface rounded-lg border border-outline-variant focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-body-lg text-on-surface transition-all" id="correo" placeholder="usuario@salud.gob.gt" required type="email">
+          </div>
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="text-label-md text-on-surface" for="contrasena">Contraseña</label>
+          <div class="relative">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">lock</span>
+            <input class="w-full pl-10 pr-4 py-3 bg-surface rounded-lg border border-outline-variant focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-body-lg text-on-surface transition-all" id="contrasena" placeholder="••••••••" required type="password">
+          </div>
+        </div>
+        <button class="w-full py-4 mt-2 bg-primary text-on-primary text-headline-sm rounded-lg hover:bg-on-primary-fixed-variant transition-colors shadow-sm hover:shadow-md flex items-center justify-center gap-2 group" type="submit">
+          Iniciar Sesión
+          <span class="material-symbols-outlined transition-transform group-hover:translate-x-1">arrow_forward</span>
+        </button>
+        <p class="link-recuperar text-center" id="link-recuperar">¿Olvidaste tu contraseña?</p>
       </form>
-
-      <p id="mensaje-error" class="mensaje-error"></p>
-    </div>
-  </div>
-
-  <!-- PANTALLA: CAPTURA DE SÍNTOMAS -->
-  <div id="pantalla-sintomas" class="pantalla">
-    <div class="contenedor-sintomas">
-      <div class="navbar">
-        <div class="navbar-marca">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2L3 6v6c0 5 4 9 9 10 5-1 9-5 9-10V6l-9-4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
-            <path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-          </svg>
-          <span class="navbar-titulo">Nueva consulta</span>
-        </div>
-        <span id="contador-sintomas" class="badge">0 síntomas</span>
-      </div>
-
-      <div class="categoria">
-        <h3>Respiratorios</h3>
-        <div class="botones-sintomas" id="cat-respiratorio"></div>
-      </div>
-
-      <div class="categoria">
-        <h3>Gastrointestinales</h3>
-        <div class="botones-sintomas" id="cat-gastrointestinal"></div>
-      </div>
-
-      <div class="categoria">
-        <h3>Generales</h3>
-        <div class="botones-sintomas" id="cat-general"></div>
-      </div>
-
-      <button id="btn-analizar" class="btn-primario btn-analizar">Analizar síntomas</button>
-    </div>
-  </div>
-
-  <!-- PANTALLA: RESULTADO -->
-  <div id="pantalla-resultado" class="pantalla">
-    <div class="contenedor-resultado">
-      <div id="banner-advertencia" class="banner-advertencia" style="display:none;">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span>Confianza insuficiente — se recomienda ampliar la evaluación clínica.</span>
-      </div>
-
-      <div id="resultado-principal" class="resultado-card"></div>
-
-      <p class="etiqueta-seccion">Diagnósticos alternativos</p>
-      <div id="resultados-alternativos"></div>
-
-      <div class="acciones">
-        <button id="btn-confirmar" class="btn-confirmar">Confirmar diagnóstico</button>
-        <button id="btn-descartar" class="btn-descartar">Descartar sugerencia</button>
-      </div>
-
-      <div class="enlaces-inferiores">
-        <button id="btn-nueva-consulta" class="btn-secundario">Nueva consulta</button>
-        <button id="btn-ver-historial" class="btn-secundario">Ver historial del turno</button>
+      <p id="mensaje-error" class="mensaje-error text-center"></p>
+      <div class="mt-8 text-center border-t border-outline-variant pt-6 w-full">
+        <p class="text-body-md text-on-surface-variant flex items-center justify-center gap-2">
+          <span class="material-symbols-outlined text-sm">location_on</span>
+          Centro de Salud de Salcajá
+        </p>
       </div>
     </div>
-  </div>
+  </main>
+</div>
 
-  <!-- PANTALLA: HISTORIAL DEL TURNO -->
-  <div id="pantalla-historial" class="pantalla">
-    <div class="contenedor-historial">
-      <div class="navbar">
-        <div class="navbar-marca">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2L3 6v6c0 5 4 9 9 10 5-1 9-5 9-10V6l-9-4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
-            <path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-          </svg>
-          <span class="navbar-titulo">Historial del turno</span>
-        </div>
-        <div class="navbar-acciones">
-          <span id="btn-ir-consulta" class="badge badge-accion">Nueva consulta</span>
-          <span id="btn-ir-admin" class="badge badge-accion badge-admin">Administración</span>
-        </div>
+<!-- ============ NUEVA CONSULTA (síntomas) ============ -->
+<div id="pantalla-sintomas" class="pantalla">
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="h-16 flex items-center px-6 gap-sm border-b border-outline-variant">
+        <svg class="w-7 h-7 text-primary" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L3 6v6c0 5 4 9 9 10 5-1 9-5 9-10V6l-9-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <span class="font-headline-sm text-headline-sm text-primary">SaludXpert</span>
       </div>
-      <div id="lista-historial" class="lista-historial"></div>
+      <nav class="flex-1 flex flex-col gap-xs px-md pt-lg">
+        <span class="nav-link nav-link-active"><span class="material-symbols-outlined mr-md">add_circle</span><span class="font-label-md text-label-md">Nueva Consulta</span></span>
+        <span class="nav-link" onclick="cargarHistorial().then(()=>mostrarPantalla('pantalla-historial'))"><span class="material-symbols-outlined mr-md">history</span><span class="font-label-md text-label-md">Historial</span></span>
+        <span class="nav-link" onclick="cargarPanelAdmin().then(()=>mostrarPantalla('pantalla-admin'))"><span class="material-symbols-outlined mr-md">admin_panel_settings</span><span class="font-label-md text-label-md">Administración</span></span>
+      </nav>
+    </aside>
+    <div class="shell-main">
+      <header class="topbar">
+        <span class="text-label-md font-label-md text-on-surface-variant">Centro de Salud Salcajá</span>
+      </header>
+      <main class="shell-content">
+        <div class="flex flex-col w-full relative pb-24">
+          <div class="px-margin-desktop py-xl flex flex-wrap gap-md justify-between items-center mb-lg">
+            <div>
+              <h1 class="text-display-lg font-display-lg text-on-surface mb-unit">Nueva Consulta</h1>
+              <p class="text-body-lg font-body-lg text-on-surface-variant">Seleccione los síntomas reportados por el paciente.</p>
+            </div>
+            <div class="bg-primary-container text-on-primary-container px-lg py-sm rounded-full shadow-sm flex items-center gap-sm">
+              <span class="material-symbols-outlined">vital_signs</span>
+              <span class="text-headline-sm font-headline-sm">Síntomas: <span class="font-bold" id="contador-sintomas">0 síntomas</span></span>
+            </div>
+          </div>
+
+          <div class="px-margin-desktop space-y-xl">
+            <div class="bg-surface-container-lowest rounded-xl shadow-sm p-lg">
+              <div class="flex items-center gap-md mb-lg">
+                <div class="w-12 h-12 rounded-full bg-primary-fixed-dim flex items-center justify-center text-on-primary-fixed-variant"><span class="material-symbols-outlined text-2xl">pulmonology</span></div>
+                <h2 class="text-headline-md font-headline-md text-on-surface">Respiratorios</h2>
+              </div>
+              <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-md" id="cat-respiratorio"></div>
+            </div>
+
+            <div class="bg-surface-container-lowest rounded-xl shadow-sm p-lg">
+              <div class="flex items-center gap-md mb-lg">
+                <div class="w-12 h-12 rounded-full bg-tertiary-fixed-dim flex items-center justify-center text-on-tertiary-fixed-variant"><span class="material-symbols-outlined text-2xl">gastroenterology</span></div>
+                <h2 class="text-headline-md font-headline-md text-on-surface">Gastrointestinales</h2>
+              </div>
+              <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-md" id="cat-gastrointestinal"></div>
+            </div>
+
+            <div class="bg-surface-container-lowest rounded-xl shadow-sm p-lg">
+              <div class="flex items-center gap-md mb-lg">
+                <div class="w-12 h-12 rounded-full bg-secondary-fixed-dim flex items-center justify-center text-on-secondary-fixed-variant"><span class="material-symbols-outlined text-2xl">accessibility_new</span></div>
+                <h2 class="text-headline-md font-headline-md text-on-surface">Generales</h2>
+              </div>
+              <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-md" id="cat-general"></div>
+            </div>
+          </div>
+
+          <div class="sticky-actionbar">
+            <div class="flex items-center gap-sm">
+              <span class="material-symbols-outlined text-primary">list_alt</span>
+              <span class="text-headline-sm font-headline-sm text-on-surface">Listo para analizar</span>
+            </div>
+            <button id="btn-analizar" class="h-14 px-xl bg-primary text-on-primary rounded-lg text-headline-sm font-headline-sm shadow-md hover:bg-primary/90 transition-colors flex items-center gap-sm group">
+              Analizar Síntomas
+              <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+            </button>
+          </div>
+        </div>
+      </main>
     </div>
   </div>
+</div>
 
-  <!-- PANTALLA: PANEL DE ADMINISTRACIÓN -->
-  <div id="pantalla-admin" class="pantalla">
-    <div class="contenedor-admin">
-      <div class="navbar">
-        <div class="navbar-marca">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2L3 6v6c0 5 4 9 9 10 5-1 9-5 9-10V6l-9-4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
-            <path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-          </svg>
-          <span class="navbar-titulo">Panel de administración</span>
-        </div>
-        <span id="btn-agregar-usuario" class="badge badge-accion">+ Agregar usuario</span>
+<!-- ============ RESULTADO ============ -->
+<div id="pantalla-resultado" class="pantalla">
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="h-16 flex items-center px-6 gap-sm border-b border-outline-variant">
+        <svg class="w-7 h-7 text-primary" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L3 6v6c0 5 4 9 9 10 5-1 9-5 9-10V6l-9-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <span class="font-headline-sm text-headline-sm text-primary">SaludXpert</span>
       </div>
+      <nav class="flex-1 flex flex-col gap-xs px-md pt-lg">
+        <span class="nav-link" onclick="reiniciarConsulta()"><span class="material-symbols-outlined mr-md">add_circle</span><span class="font-label-md text-label-md">Nueva Consulta</span></span>
+        <span class="nav-link" onclick="cargarHistorial().then(()=>mostrarPantalla('pantalla-historial'))"><span class="material-symbols-outlined mr-md">history</span><span class="font-label-md text-label-md">Historial</span></span>
+        <span class="nav-link" onclick="cargarPanelAdmin().then(()=>mostrarPantalla('pantalla-admin'))"><span class="material-symbols-outlined mr-md">admin_panel_settings</span><span class="font-label-md text-label-md">Administración</span></span>
+      </nav>
+    </aside>
+    <div class="shell-main">
+      <header class="topbar">
+        <span class="text-label-md font-label-md text-on-surface-variant">Centro de Salud Salcajá</span>
+      </header>
+      <main class="shell-content">
+        <div class="flex flex-col w-full px-margin-desktop py-lg gap-lg">
 
-      <div class="stats-row">
-        <div class="stat-card">
-          <div class="stat-label">Usuarios activos</div>
-          <div class="stat-value" id="stat-usuarios-activos">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Consultas hoy</div>
-          <div class="stat-value" id="stat-consultas-hoy">0</div>
-        </div>
-      </div>
+          <div id="banner-advertencia" class="banner-advertencia" style="display:none;">
+            <span class="material-symbols-outlined shrink-0">warning</span>
+            <span>Confianza insuficiente — Se recomienda ampliar la evaluación clínica.</span>
+          </div>
 
-      <div class="tabla-wrap">
-        <table class="tabla-usuarios">
-          <thead>
-            <tr>
-              <th>Nombre</th>
-              <th>Correo</th>
-              <th>Rol</th>
-              <th>Estado</th>
-              <th>Acción</th>
-            </tr>
-          </thead>
-          <tbody id="tabla-usuarios-body"></tbody>
-        </table>
-      </div>
+          <div class="grid grid-cols-12 gap-gutter">
+            <div class="col-span-12 lg:col-span-8 flex flex-col gap-md">
+              <div id="resultado-principal" class="bg-surface-container-lowest rounded-xl p-lg shadow-md"></div>
+
+              <p class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider mt-sm">Diagnósticos alternativos</p>
+              <div id="resultados-alternativos" class="grid grid-cols-1 md:grid-cols-2 gap-gutter"></div>
+            </div>
+
+            <div class="col-span-12 lg:col-span-4 flex flex-col gap-md">
+              <div class="bg-surface-container-lowest rounded-xl p-md shadow-sm flex flex-col gap-sm">
+                <h3 class="font-headline-sm text-headline-sm text-on-surface flex items-center gap-sm">
+                  <span class="material-symbols-outlined text-on-surface-variant">info</span>
+                  Recuerde
+                </h3>
+                <p class="font-body-md text-body-md text-on-surface-variant">
+                  Este resultado es un apoyo al diagnóstico. La decisión clínica final corresponde siempre al criterio del médico.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex flex-col sm:flex-row gap-md justify-end mt-lg pt-md border-t border-outline-variant/30">
+            <button id="btn-descartar" class="h-12 px-lg rounded flex items-center justify-center gap-sm font-label-md text-label-md bg-transparent text-error hover:bg-error/10 transition-colors border-2 border-error">
+              <span class="material-symbols-outlined text-[20px]">close</span>
+              Descartar Sugerencia
+            </button>
+            <button id="btn-confirmar" class="h-12 px-lg rounded flex items-center justify-center gap-sm font-label-md text-label-md bg-tertiary text-on-tertiary hover:bg-tertiary-container hover:text-on-tertiary-container shadow-md hover:shadow-lg transition-all">
+              <span class="material-symbols-outlined text-[20px]">check</span>
+              Confirmar Diagnóstico
+            </button>
+          </div>
+
+          <div class="flex justify-center gap-lg pb-lg">
+            <button id="btn-nueva-consulta" class="link-secundario">Nueva consulta</button>
+            <button id="btn-ver-historial" class="link-secundario">Ver historial del turno</button>
+          </div>
+        </div>
+      </main>
     </div>
   </div>
+</div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="script.js"></script>
+<!-- ============ HISTORIAL ============ -->
+<div id="pantalla-historial" class="pantalla">
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="h-16 flex items-center px-6 gap-sm border-b border-outline-variant">
+        <svg class="w-7 h-7 text-primary" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L3 6v6c0 5 4 9 9 10 5-1 9-5 9-10V6l-9-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <span class="font-headline-sm text-headline-sm text-primary">SaludXpert</span>
+      </div>
+      <nav class="flex-1 flex flex-col gap-xs px-md pt-lg">
+        <span class="nav-link" id="btn-ir-consulta"><span class="material-symbols-outlined mr-md">add_circle</span><span class="font-label-md text-label-md">Nueva Consulta</span></span>
+        <span class="nav-link nav-link-active"><span class="material-symbols-outlined mr-md">history</span><span class="font-label-md text-label-md">Historial</span></span>
+        <span class="nav-link" id="btn-ir-admin"><span class="material-symbols-outlined mr-md">admin_panel_settings</span><span class="font-label-md text-label-md">Administración</span></span>
+      </nav>
+    </aside>
+    <div class="shell-main">
+      <header class="topbar">
+        <span class="text-label-md font-label-md text-on-surface-variant">Centro de Salud Salcajá</span>
+      </header>
+      <main class="shell-content">
+        <div class="flex flex-col w-full p-margin-desktop gap-xl max-w-7xl mx-auto">
+          <div class="flex flex-col gap-sm">
+            <h1 class="font-display-lg text-display-lg text-primary">Historial del Turno</h1>
+            <div class="w-16 h-1 bg-primary rounded-full mt-2"></div>
+          </div>
+          <div id="lista-historial" class="flex flex-col gap-md"></div>
+        </div>
+      </main>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ADMIN ============ -->
+<div id="pantalla-admin" class="pantalla">
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="h-16 flex items-center px-6 gap-sm border-b border-outline-variant">
+        <svg class="w-7 h-7 text-primary" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L3 6v6c0 5 4 9 9 10 5-1 9-5 9-10V6l-9-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <span class="font-headline-sm text-headline-sm text-primary">SaludXpert</span>
+      </div>
+      <nav class="flex-1 flex flex-col gap-xs px-md pt-lg">
+        <span class="nav-link" onclick="reiniciarConsulta()"><span class="material-symbols-outlined mr-md">add_circle</span><span class="font-label-md text-label-md">Nueva Consulta</span></span>
+        <span class="nav-link" onclick="cargarHistorial().then(()=>mostrarPantalla('pantalla-historial'))"><span class="material-symbols-outlined mr-md">history</span><span class="font-label-md text-label-md">Historial</span></span>
+        <span class="nav-link nav-link-active"><span class="material-symbols-outlined mr-md">admin_panel_settings</span><span class="font-label-md text-label-md">Administración</span></span>
+      </nav>
+    </aside>
+    <div class="shell-main">
+      <header class="topbar">
+        <span class="text-label-md font-label-md text-on-surface-variant">Centro de Salud Salcajá</span>
+      </header>
+      <main class="shell-content">
+        <div class="flex flex-col w-full px-margin-desktop pb-xl">
+          <div class="flex items-center justify-between py-xl flex-wrap gap-md">
+            <div class="flex flex-col gap-xs">
+              <h1 class="font-display-lg text-display-lg text-on-surface leading-tight">Panel de Administración</h1>
+              <p class="font-body-lg text-body-lg text-on-surface-variant">Gestión de usuarios y métricas del sistema.</p>
+            </div>
+            <button id="btn-agregar-usuario" class="h-12 px-lg bg-primary text-on-primary rounded font-label-md text-label-md flex items-center justify-center gap-sm shadow-sm hover:shadow-md transition-shadow">
+              <span class="material-symbols-outlined text-[18px]">add</span>
+              Agregar Usuario
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-md mb-xl">
+            <div class="bg-surface-container-lowest p-lg rounded-lg shadow-sm border border-outline-variant flex flex-col gap-sm">
+              <div class="flex items-center gap-sm text-on-surface-variant">
+                <span class="material-symbols-outlined text-[20px]">group</span>
+                <span class="font-label-md text-label-md uppercase tracking-wider">Usuarios activos</span>
+              </div>
+              <div class="font-display-lg text-display-lg text-primary" id="stat-usuarios-activos">0</div>
+            </div>
+            <div class="bg-surface-container-lowest p-lg rounded-lg shadow-sm border border-outline-variant flex flex-col gap-sm">
+              <div class="flex items-center gap-sm text-on-surface-variant">
+                <span class="material-symbols-outlined text-[20px]">assignment</span>
+                <span class="font-label-md text-label-md uppercase tracking-wider">Consultas hoy</span>
+              </div>
+              <div class="font-display-lg text-display-lg text-primary" id="stat-consultas-hoy">0</div>
+            </div>
+          </div>
+
+          <div class="bg-surface-container-lowest rounded-lg shadow-sm border border-outline-variant flex flex-col overflow-hidden">
+            <div class="px-lg py-md border-b border-surface-container-high bg-surface-container-low/50">
+              <h2 class="font-headline-sm text-headline-sm text-on-surface">Gestión de Usuarios</h2>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left">
+                <thead class="bg-surface-container-low border-b border-surface-container-high">
+                  <tr>
+                    <th class="px-lg py-md font-label-md text-label-md text-on-surface-variant uppercase tracking-wider whitespace-nowrap">Nombre</th>
+                    <th class="px-lg py-md font-label-md text-label-md text-on-surface-variant uppercase tracking-wider whitespace-nowrap">Correo</th>
+                    <th class="px-lg py-md font-label-md text-label-md text-on-surface-variant uppercase tracking-wider whitespace-nowrap">Rol</th>
+                    <th class="px-lg py-md font-label-md text-label-md text-on-surface-variant uppercase tracking-wider whitespace-nowrap">Estado</th>
+                    <th class="px-lg py-md font-label-md text-label-md text-on-surface-variant uppercase tracking-wider whitespace-nowrap text-right">Acción</th>
+                  </tr>
+                </thead>
+                <tbody id="tabla-usuarios-body" class="divide-y divide-surface-container-high"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="script.js"></script>
 </body>
 </html>
