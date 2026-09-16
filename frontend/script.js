@@ -6,12 +6,54 @@ const API_URL = 'https://saludxpert-api.onrender.com';
 let sintomasSeleccionados = [];
 let listaSintomas = [];
 let ultimoResultado = null;
+let usuarioActual = null;
 
 // ===== NAVEGACIÓN ENTRE PANTALLAS =====
 function mostrarPantalla(id) {
   document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('activa'));
   document.getElementById(id).classList.add('activa');
 }
+
+// ===== USUARIO EN LA BARRA SUPERIOR =====
+function capitalizar(s) {
+  if (!s) return '';
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function actualizarTopbarUsuario() {
+  document.querySelectorAll('.topbar-usuario-nombre').forEach(el => {
+    el.textContent = usuarioActual ? usuarioActual.nombre : '';
+  });
+  document.querySelectorAll('.topbar-usuario-rol').forEach(el => {
+    el.textContent = usuarioActual ? capitalizar(usuarioActual.rol) : '';
+  });
+}
+
+async function cargarUsuarioActual(correo) {
+  usuarioActual = { correo, nombre: correo, rol: '' };
+  try {
+    const resp = await fetch(`${API_URL}/api/usuarios`);
+    const usuarios = await resp.json();
+    const match = usuarios.find(u => u.correo === correo);
+    if (match) {
+      usuarioActual = { correo: match.correo, nombre: match.nombre, rol: match.rol };
+    }
+  } catch (error) {
+    console.error('No se pudo obtener el usuario actual:', error);
+  }
+  actualizarTopbarUsuario();
+}
+
+// ===== CERRAR SESIÓN =====
+document.querySelectorAll('.btn-logout').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    await supabaseClient.auth.signOut();
+    usuarioActual = null;
+    document.getElementById('correo').value = '';
+    document.getElementById('contrasena').value = '';
+    mostrarPantalla('pantalla-login');
+  });
+});
 
 // ===== LOGIN =====
 document.getElementById('form-login').addEventListener('submit', async (e) => {
@@ -34,6 +76,7 @@ document.getElementById('form-login').addEventListener('submit', async (e) => {
   }
 
   console.log('Usuario autenticado:', data.user.email);
+  await cargarUsuarioActual(data.user.email);
   mostrarPantalla('pantalla-sintomas');
   cargarSintomas();
 });
@@ -134,7 +177,7 @@ function mostrarResultado(resultado) {
   });
 }
 
-// ===== CONFIRMAR / DESCARTAR =====
+// ===== CONFIRMAR / DESCARTAR (desde pantalla de resultado) =====
 document.getElementById('btn-confirmar').addEventListener('click', async () => {
   if (!ultimoResultado || !ultimoResultado.consulta_id) {
     alert('No se encontró la consulta a confirmar.');
@@ -213,27 +256,81 @@ async function cargarHistorial() {
 
     lista.innerHTML = '';
     consultas.forEach(c => {
-  const fecha = new Date(c.fecha + 'Z');
-  const hora = fecha.toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Guatemala' });
-  const diagnosticoPrincipal = c.resultado?.diagnosticos?.[0];
+      const fecha = new Date(c.fecha + 'Z');
+      const hora = fecha.toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Guatemala' });
+      const diagnosticoPrincipal = c.resultado?.diagnosticos?.[0];
+      const pendiente = !c.decision_medico;
 
-  const estadoBadge = c.decision_medico === 'confirmado'
-    ? '<span style="color:#2E7D32; font-weight:600;">✓ Confirmado</span>'
-    : c.decision_medico === 'descartado'
-    ? '<span style="color:#C62828; font-weight:600;">✗ Descartado</span>'
-    : '<span style="color:#999;">Pendiente</span>';
+      const estadoBadge = c.decision_medico === 'confirmado'
+        ? '<span style="color:#2E7D32; font-weight:600;">✓ Confirmado</span>'
+        : c.decision_medico === 'descartado'
+        ? '<span style="color:#C62828; font-weight:600;">✗ Descartado</span>'
+        : '<span style="color:#999;">Pendiente</span>';
 
-  const div = document.createElement('div');
-  div.className = 'historial-card';
-  div.innerHTML = `
-    <div class="historial-hora">${hora} — ${estadoBadge}</div>
-    <div class="historial-diagnostico">
-      ${diagnosticoPrincipal ? diagnosticoPrincipal.enfermedad + ' — ' + diagnosticoPrincipal.confianza + '%' : 'Sin diagnóstico'}
-    </div>
-    <div class="historial-sintomas">Síntomas: ${c.sintomas_ingresados.join(', ')}</div>
-  `;
-  lista.appendChild(div);
-});
+      const div = document.createElement('div');
+      div.className = 'historial-card';
+      div.style.cursor = 'pointer';
+      div.innerHTML = `
+        <div class="historial-hora">${hora} — ${estadoBadge}</div>
+        <div class="historial-diagnostico">
+          ${diagnosticoPrincipal ? diagnosticoPrincipal.enfermedad + ' — ' + diagnosticoPrincipal.confianza + '%' : 'Sin diagnóstico'}
+        </div>
+        <div class="historial-sintomas">Síntomas: ${c.sintomas_ingresados.join(', ')}</div>
+        <div class="historial-detalle" style="display:none; margin-top:12px;"></div>
+      `;
+
+      const detalle = div.querySelector('.historial-detalle');
+
+      div.addEventListener('click', (e) => {
+        if (e.target.closest('.historial-accion')) return;
+
+        const abierto = detalle.style.display === 'block';
+        document.querySelectorAll('.historial-detalle').forEach(d => d.style.display = 'none');
+        detalle.style.display = abierto ? 'none' : 'block';
+
+        if (!abierto && detalle.innerHTML === '') {
+          if (pendiente) {
+            detalle.innerHTML = `
+              <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <button class="historial-accion btn-toggle activar" data-id="${c.id}" data-accion="confirmar">Confirmar diagnóstico</button>
+                <button class="historial-accion btn-toggle desactivar" data-id="${c.id}" data-accion="descartar">Descartar sugerencia</button>
+              </div>
+            `;
+            detalle.querySelectorAll('.historial-accion').forEach(btn => {
+              btn.addEventListener('click', async (ev) => {
+                ev.stopPropagation();
+                const id = btn.dataset.id;
+                const accion = btn.dataset.accion;
+
+                if (accion === 'confirmar') {
+                  await fetch(`${API_URL}/api/consultas/${id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ decision_medico: 'confirmado' })
+                  });
+                } else {
+                  const diagnosticoDefinitivo = prompt('Ingrese el diagnóstico definitivo:');
+                  if (!diagnosticoDefinitivo) return;
+                  await fetch(`${API_URL}/api/consultas/${id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      decision_medico: 'descartado',
+                      diagnostico_definitivo: diagnosticoDefinitivo
+                    })
+                  });
+                }
+                await cargarHistorial();
+              });
+            });
+          } else {
+            detalle.innerHTML = `<div class="historial-sintomas">Diagnóstico definitivo: ${c.diagnostico_definitivo || (diagnosticoPrincipal ? diagnosticoPrincipal.enfermedad : '—')}</div>`;
+          }
+        }
+      });
+
+      lista.appendChild(div);
+    });
 
   } catch (error) {
     console.error('Error cargando historial:', error);
@@ -317,8 +414,8 @@ async function cargarPanelAdmin() {
       tbody.appendChild(tr);
     });
 
-    // Agregar eventos a los botones de activar/desactivar
-    document.querySelectorAll('.btn-toggle').forEach(btn => {
+    // Agregar eventos a los botones de activar/desactivar (solo dentro de la tabla)
+    tbody.querySelectorAll('.btn-toggle').forEach(btn => {
       btn.addEventListener('click', async () => {
         const id = btn.dataset.id;
         const activoActual = btn.dataset.activo === 'true';
