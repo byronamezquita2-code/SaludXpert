@@ -283,6 +283,38 @@ body { font-family: 'Inter', sans-serif; }
 .rol-enfermeria { background: #005c15; color: #ffffff; }
 .rol-administrador { background: #e5e2e1; color: #424752; border: 1px solid #c2c6d4; }
 
+/* Tarjetas de diagnósticos agrupados del día */
+.diagnostico-dia-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  background: #f6f3f2;
+  border-radius: 10px;
+  border-left: 4px solid #1565c0;
+  transition: background 0.15s;
+}
+.diagnostico-dia-card:hover { background: #eae7e7; }
+
+.diagnostico-dia-nombre {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1b1c1c;
+}
+
+.diagnostico-dia-count {
+  min-width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1565c0;
+  color: #ffffff;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
 .btn-toggle {
   padding: 6px 14px;
   border-radius: 6px;

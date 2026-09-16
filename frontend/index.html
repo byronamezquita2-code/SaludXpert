@@ -241,6 +241,19 @@ tailwind.config={theme:{extend:{"colors":{"on-primary":"#ffffff","on-secondary-c
             </div>
           </div>
 
+          <!-- Enfermedades del día agrupadas -->
+          <div class="bg-surface-container-lowest rounded-lg shadow-sm border border-outline-variant flex flex-col overflow-hidden mb-xl">
+            <div class="px-lg py-md border-b border-surface-container-high bg-surface-container-low/50">
+              <h2 class="font-headline-sm text-headline-sm text-on-surface flex items-center gap-sm">
+                <span class="material-symbols-outlined text-[20px] text-on-surface-variant">bar_chart</span>
+                Diagnósticos del Día
+              </h2>
+            </div>
+            <div class="p-lg" id="diagnosticos-dia-container">
+              <p class="estado-vacio text-body-md text-on-surface-variant">Sin consultas hoy.</p>
+            </div>
+          </div>
+
           <div class="bg-surface-container-lowest rounded-lg shadow-sm border border-outline-variant flex flex-col overflow-hidden">
             <div class="px-lg py-md border-b border-surface-container-high bg-surface-container-low/50">
               <h2 class="font-headline-sm text-headline-sm text-on-surface">Gestión de Usuarios</h2>

@@ -241,6 +241,21 @@ async function cargarUsuarioActual() {
   actualizarTopbarUsuario();
 }
 
+// ── Sesión persistente (no regresar a login al refrescar) ─────────────────────
+async function restaurarSesion() {
+  const { data: sessionData } = await supabaseClient.auth.getSession();
+  if (sessionData?.session) {
+    await cargarUsuarioActual();
+    const esAdmin = usuarioActual?.rol === 'administrador';
+    inyectarShell(esAdmin);
+    mostrarPantalla('pantalla-sintomas');
+    cargarSintomas();
+  }
+}
+
+// Ejecutar al cargar la página
+restaurarSesion();
+
 // ── LOGIN ─────────────────────────────────────────────────────────────────────
 document.getElementById('form-login').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -563,7 +578,35 @@ async function cargarPanelAdmin() {
     // Estadísticas
     document.getElementById('stat-usuarios-activos').textContent = usuarios.filter(u => u.activo).length;
     const hoy = new Date().toISOString().split('T')[0];
-    document.getElementById('stat-consultas-hoy').textContent = consultas.filter(c => c.fecha.startsWith(hoy)).length;
+    const consultasHoy = consultas.filter(c => c.fecha.startsWith(hoy));
+    document.getElementById('stat-consultas-hoy').textContent = consultasHoy.length;
+
+    // ── Diagnósticos del día agrupados ──
+    const container = document.getElementById('diagnosticos-dia-container');
+    if (consultasHoy.length === 0) {
+      container.innerHTML = '<p class="text-body-md text-on-surface-variant" style="padding:20px 0; text-align:center;">Sin consultas registradas hoy.</p>';
+    } else {
+      // Contar enfermedades
+      const conteo = {};
+      consultasHoy.forEach(c => {
+        const enfermedad = c.resultado?.diagnosticos?.[0]?.enfermedad || 'Sin diagnóstico';
+        conteo[enfermedad] = (conteo[enfermedad] || 0) + 1;
+      });
+
+      // Ordenar de mayor a menor
+      const ordenado = Object.entries(conteo).sort((a, b) => b[1] - a[1]);
+
+      container.innerHTML = `
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-md">
+          ${ordenado.map(([enfermedad, cantidad]) => `
+            <div class="diagnostico-dia-card">
+              <span class="diagnostico-dia-nombre">${enfermedad}</span>
+              <span class="diagnostico-dia-count">${cantidad}</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
 
     // Tabla de usuarios
     const tbody = document.getElementById('tabla-usuarios-body');
