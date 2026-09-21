@@ -1,16 +1,17 @@
 {
   "name": "pruebas-validacion",
   "version": "1.0.0",
-  "description": "",
+  "description": "Pruebas BDD (Cucumber) para la API de SaludXpert",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npx cucumber-js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "@cucumber/cucumber": "^13.2.1",
+    "@supabase/supabase-js": "^2.112.4",
     "axios": "^1.20.0"
   }
 }
