@@ -61,7 +61,7 @@ async function requireAuth(req, res, next) {
 // Debe usarse DESPUÉS de requireAuth.
 async function requireAdmin(req, res, next) {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('usuarios')
       .select('rol')
       .eq('auth_id', req.authUser.id)
@@ -86,7 +86,7 @@ async function requireAdmin(req, res, next) {
 // Debe usarse DESPUÉS de requireAuth.
 async function requireMedicoOAdmin(req, res, next) {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('usuarios')
       .select('rol')
       .eq('auth_id', req.authUser.id)
@@ -137,11 +137,19 @@ app.get('/api/enfermedades', requireAuth, async (req, res) => {
 // ── Diagnóstico ───────────────────────────────────────────────────────────────
 app.post('/api/diagnosticar', requireAuth, async (req, res) => {
   try {
-    const { sintomas, usuario_id } = req.body;
+    const { sintomas } = req.body;
 
     if (!sintomas || sintomas.length === 0) {
       return res.status(400).json({ error: 'Debe proporcionar al menos un síntoma.' });
     }
+
+    // Resolver el id interno del usuario autenticado — nunca confiar en un
+    // usuario_id que mande el cliente en el body.
+    const { data: usuarioActual } = await supabaseAdmin
+      .from('usuarios')
+      .select('id')
+      .eq('auth_id', req.authUser.id)
+      .single();
 
     // Llamar al motor de inferencia en Flask con el secret interno
     const MOTOR_URL = process.env.MOTOR_URL || 'http://localhost:5000';
@@ -154,9 +162,9 @@ app.post('/api/diagnosticar', requireAuth, async (req, res) => {
     const resultado = response.data;
 
     // Guardar la consulta en la base de datos
-    const { data, error } = await supabase.from('consultas').insert([
+    const { data, error } = await supabaseAdmin.from('consultas').insert([
       {
-        usuario_id: usuario_id || null,
+        usuario_id: usuarioActual?.id || null,
         sintomas_ingresados: sintomas,
         resultado: resultado,
       }
@@ -178,13 +186,31 @@ app.post('/api/diagnosticar', requireAuth, async (req, res) => {
 });
 
 // ── Historial de consultas ────────────────────────────────────────────────────
+// Por defecto retorna solo las consultas del turno de hoy (hora Guatemala,
+// UTC-6 todo el año, sin horario de verano) con un límite razonable, para
+// que la pantalla "Historial del Turno" no cargue el historial completo del
+// sistema. Con ?todas=true se puede pedir el historial completo (sigue
+// respetando el límite via ?limite=). Ej: /api/consultas?todas=true&limite=200
 app.get('/api/consultas', requireAuth, async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const limite = Math.min(Math.max(parseInt(req.query.limite, 10) || 100, 1), 500);
+    const verTodas = req.query.todas === 'true';
+
+    let query = supabaseAdmin
       .from('consultas')
       .select('*')
-      .order('fecha', { ascending: false });
+      .order('fecha', { ascending: false })
+      .limit(limite);
 
+    if (!verTodas) {
+      // "Hoy" en hora de Guatemala (UTC-6 fijo), convertido a UTC para
+      // comparar contra la columna `fecha` (timestamptz en UTC).
+      const hoyGt = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Guatemala' }); // YYYY-MM-DD
+      const inicioDiaUTC = `${hoyGt}T06:00:00.000Z`; // 00:00 GT = 06:00 UTC
+      query = query.gte('fecha', inicioDiaUTC);
+    }
+
+    const { data, error } = await query;
     if (error) throw error;
     res.json(data);
   } catch (error) {
@@ -199,7 +225,11 @@ app.patch('/api/consultas/:id', requireAuth, async (req, res) => {
     const { id } = req.params;
     const { decision_medico, diagnostico_definitivo } = req.body;
 
-    const { data, error } = await supabase
+    if (!['confirmado', 'descartado'].includes(decision_medico)) {
+      return res.status(400).json({ error: 'decision_medico inválido — debe ser "confirmado" o "descartado".' });
+    }
+
+    const { data, error } = await supabaseAdmin
       .from('consultas')
       .update({
         decision_medico,
@@ -209,6 +239,9 @@ app.patch('/api/consultas/:id', requireAuth, async (req, res) => {
       .select();
 
     if (error) throw error;
+    if (!data || data.length === 0) {
+      return res.status(404).json({ error: 'Consulta no encontrada.' });
+    }
     res.json(data[0]);
   } catch (error) {
     console.error('Error PATCH /api/consultas:', error.message);
@@ -220,7 +253,7 @@ app.patch('/api/consultas/:id', requireAuth, async (req, res) => {
 // Evita que el frontend descargue TODOS los usuarios solo para mostrar el nombre.
 app.get('/api/usuarios/me', requireAuth, async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('usuarios')
       .select('id, nombre, correo, rol, activo')
       .eq('auth_id', req.authUser.id)
@@ -242,7 +275,7 @@ app.get('/api/usuarios/me', requireAuth, async (req, res) => {
 // POST/PATCH (agregar, activar/desactivar): solo administrador.
 app.get('/api/usuarios', requireAuth, requireMedicoOAdmin, async (req, res) => {
   try {
-    let query = supabase.from('usuarios').select('*').order('creado_en', { ascending: false });
+    let query = supabaseAdmin.from('usuarios').select('*').order('creado_en', { ascending: false });
     if (req.rolUsuario === 'medico') {
       query = query.eq('rol', 'medico');
     }
@@ -273,7 +306,7 @@ app.post('/api/usuarios', requireAuth, requireAdmin, async (req, res) => {
     if (authError) throw authError;
 
     // Guardar el registro en la tabla usuarios con su auth_id
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('usuarios')
       .insert([{ nombre, correo, rol, activo: true, auth_id: authData.user.id }])
       .select();
@@ -291,7 +324,7 @@ app.patch('/api/usuarios/:id', requireAuth, requireAdmin, async (req, res) => {
     const { id } = req.params;
     const { activo } = req.body;
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('usuarios')
       .update({ activo })
       .eq('id', id)
