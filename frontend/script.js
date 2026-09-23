@@ -7,6 +7,8 @@ let sintomasSeleccionados = [];
 let listaSintomas = [];
 let ultimoResultado = null;
 let usuarioActual = null;
+let pacienteActual = null;
+let busquedaPacienteTimeout = null;
 
 async function apiFetch(path, options = {}) {
   const { data: sessionData } = await supabaseClient.auth.getSession();
@@ -104,6 +106,7 @@ function mostrarPantalla(id) {
 
   document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('nav-link-active'));
   const mapa = {
+    'pantalla-paciente': 'nav-nueva',
     'pantalla-sintomas': 'nav-nueva',
     'pantalla-resultado': 'nav-nueva',
     'pantalla-historial': 'nav-historial',
@@ -167,7 +170,7 @@ function topbarHTML() {
 }
 
 function inyectarShell(rol) {
-  const pantallas = ['sintomas', 'resultado', 'historial', 'admin'];
+  const pantallas = ['paciente', 'sintomas', 'resultado', 'historial', 'admin'];
   pantallas.forEach(p => {
     const sidebar = document.getElementById(`sidebar-${p}`);
     const topbar = document.getElementById(`topbar-${p}`);
@@ -247,13 +250,52 @@ async function cargarUsuarioActual() {
   actualizarTopbarUsuario();
 }
 
+function renderBannerPaciente(elementId) {
+  const el = document.getElementById(elementId);
+  if (!el || !pacienteActual) {
+    if (el) el.innerHTML = '';
+    return;
+  }
+
+  const antecedentes = [
+    pacienteActual.alergias ? `<div class="paciente-antecedente paciente-alerta">⚠ Alergias: <strong>${escaparHtml(pacienteActual.alergias)}</strong></div>` : '',
+    pacienteActual.condiciones_cronicas ? `<div class="paciente-antecedente">Condiciones crónicas: <strong>${escaparHtml(pacienteActual.condiciones_cronicas)}</strong></div>` : '',
+    pacienteActual.medicamentos_actuales ? `<div class="paciente-antecedente">Medicamentos actuales: <strong>${escaparHtml(pacienteActual.medicamentos_actuales)}</strong></div>` : '',
+  ].join('');
+
+  el.innerHTML = `
+    <div class="banner-paciente">
+      <span class="paciente-nombre">${escaparHtml(pacienteActual.nombre)}</span>
+      ${antecedentes || '<div class="paciente-antecedente">Sin antecedentes registrados.</div>'}
+    </div>
+  `;
+}
+
+function irAPantallaPaciente() {
+  pacienteActual = null;
+  sintomasSeleccionados = [];
+  const buscarInput = document.getElementById('buscar-paciente');
+  if (buscarInput) buscarInput.value = '';
+  const resultados = document.getElementById('resultados-paciente');
+  if (resultados) resultados.innerHTML = '';
+  const form = document.getElementById('form-nuevo-paciente');
+  if (form) form.reset();
+  mostrarPantalla('pantalla-paciente');
+}
+
+async function seleccionarPaciente(paciente) {
+  pacienteActual = paciente;
+  renderBannerPaciente('banner-paciente-sintomas');
+  mostrarPantalla('pantalla-sintomas');
+  await cargarSintomas();
+}
+
 async function restaurarSesion() {
   const { data: sessionData } = await supabaseClient.auth.getSession();
   if (sessionData?.session) {
     await cargarUsuarioActual();
     inyectarShell(usuarioActual?.rol);
-    mostrarPantalla('pantalla-sintomas');
-    cargarSintomas();
+    irAPantallaPaciente();
   }
 }
 
@@ -312,8 +354,7 @@ document.getElementById('form-nueva-contrasena').addEventListener('submit', asyn
 
   await cargarUsuarioActual();
   inyectarShell(usuarioActual?.rol);
-  mostrarPantalla('pantalla-sintomas');
-  cargarSintomas();
+  irAPantallaPaciente();
 });
 
 (async function iniciarApp() {
@@ -343,8 +384,7 @@ document.getElementById('form-login').addEventListener('submit', async (e) => {
 
   await cargarUsuarioActual();
   inyectarShell(usuarioActual?.rol);
-  mostrarPantalla('pantalla-sintomas');
-  cargarSintomas();
+  irAPantallaPaciente();
 });
 
 document.getElementById('link-recuperar').addEventListener('click', async () => {
@@ -356,6 +396,69 @@ document.getElementById('link-recuperar').addEventListener('click', async () => 
     await mostrarAlerta('Error', 'No se pudo enviar el correo de recuperación.');
   } else {
     await mostrarAlerta('Correo enviado', 'Revisa tu bandeja de entrada para restablecer tu contraseña.');
+  }
+});
+
+document.getElementById('buscar-paciente').addEventListener('input', (e) => {
+  const termino = e.target.value.trim();
+  clearTimeout(busquedaPacienteTimeout);
+
+  const contenedor = document.getElementById('resultados-paciente');
+  if (termino.length < 2) {
+    contenedor.innerHTML = '';
+    return;
+  }
+
+  busquedaPacienteTimeout = setTimeout(async () => {
+    try {
+      const pacientes = await apiFetch(`/api/pacientes?buscar=${encodeURIComponent(termino)}`);
+      contenedor.innerHTML = '';
+
+      if (pacientes.length === 0) {
+        contenedor.innerHTML = '<p class="estado-vacio" style="padding:20px;">Sin resultados. Regístrelo abajo si es un paciente nuevo.</p>';
+        return;
+      }
+
+      pacientes.forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'resultado-paciente historial-card';
+        div.innerHTML = `
+          <span class="paciente-nombre">${escaparHtml(p.nombre)}</span>
+          ${p.documento ? `<div class="paciente-doc">Documento: ${escaparHtml(p.documento)}</div>` : ''}
+        `;
+        div.addEventListener('click', () => seleccionarPaciente(p));
+        contenedor.appendChild(div);
+      });
+    } catch (error) {
+      contenedor.innerHTML = '';
+      console.error('Error buscando pacientes:', error);
+    }
+  }, 300);
+});
+
+document.getElementById('form-nuevo-paciente').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const nombre = document.getElementById('paciente-nombre').value.trim();
+  if (!nombre) return;
+
+  const cuerpo = {
+    nombre,
+    documento: document.getElementById('paciente-documento').value.trim() || null,
+    fecha_nacimiento: document.getElementById('paciente-nacimiento').value || null,
+    alergias: document.getElementById('paciente-alergias').value.trim() || null,
+    condiciones_cronicas: document.getElementById('paciente-condiciones').value.trim() || null,
+    medicamentos_actuales: document.getElementById('paciente-medicamentos').value.trim() || null,
+  };
+
+  try {
+    const paciente = await apiFetch('/api/pacientes', {
+      method: 'POST',
+      body: JSON.stringify(cuerpo),
+    });
+    await seleccionarPaciente(paciente);
+  } catch (error) {
+    await mostrarAlerta('Error', error.message || 'No se pudo registrar el paciente.');
   }
 });
 
@@ -400,6 +503,11 @@ function toggleSintoma(btn, nombre) {
 }
 
 document.getElementById('btn-analizar').addEventListener('click', async () => {
+  if (!pacienteActual) {
+    await mostrarAlerta('Falta el paciente', 'Seleccione o registre un paciente antes de continuar.');
+    irAPantallaPaciente();
+    return;
+  }
   if (sintomasSeleccionados.length === 0) {
     await mostrarAlerta('Sin síntomas', 'Debe seleccionar al menos un síntoma antes de continuar.');
     return;
@@ -413,7 +521,7 @@ document.getElementById('btn-analizar').addEventListener('click', async () => {
   try {
     const resultado = await apiFetch('/api/diagnosticar', {
       method: 'POST',
-      body: JSON.stringify({ sintomas: sintomasSeleccionados }),
+      body: JSON.stringify({ sintomas: sintomasSeleccionados, paciente_id: pacienteActual.id }),
     });
 
     ultimoResultado = resultado;
@@ -430,6 +538,8 @@ document.getElementById('btn-analizar').addEventListener('click', async () => {
 });
 
 function mostrarResultado(resultado) {
+  renderBannerPaciente('banner-paciente-resultado');
+
   const banner = document.getElementById('banner-advertencia');
   banner.style.display = resultado.confianza_suficiente ? 'none' : 'block';
 
@@ -503,10 +613,9 @@ document.getElementById('btn-descartar').addEventListener('click', async () => {
 document.getElementById('btn-nueva-consulta').addEventListener('click', reiniciarConsulta);
 
 function reiniciarConsulta() {
-  sintomasSeleccionados = [];
   document.querySelectorAll('.btn-sintoma').forEach(b => b.classList.remove('seleccionado'));
   document.getElementById('contador-sintomas').textContent = '0 síntomas';
-  mostrarPantalla('pantalla-sintomas');
+  irAPantallaPaciente();
 }
 
 document.getElementById('btn-ver-historial').addEventListener('click', async () => {
@@ -548,6 +657,7 @@ async function cargarHistorial() {
         <div class="historial-diagnostico">
           ${diagnosticoPrincipal ? escaparHtml(diagnosticoPrincipal.enfermedad) + ' — ' + diagnosticoPrincipal.confianza + '%' : 'Sin diagnóstico'}
         </div>
+        <div class="historial-sintomas">Paciente: ${c.pacientes?.nombre ? escaparHtml(c.pacientes.nombre) : 'Sin registrar'}</div>
         <div class="historial-sintomas">Síntomas: ${escaparHtml(c.sintomas_ingresados.join(', '))}</div>
         <div class="historial-detalle" style="display:none; margin-top:12px;"></div>
       `;

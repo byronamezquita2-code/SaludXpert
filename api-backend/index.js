@@ -33,6 +33,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const supabaseAdmin = createClient(supabaseUrl, process.env.SUPABASE_SERVICE_KEY);
 
 const USUARIO_COLUMNAS_PUBLICAS = 'id, nombre, correo, rol, activo, creado_en';
+const PACIENTE_COLUMNAS = 'id, nombre, documento, fecha_nacimiento, alergias, condiciones_cronicas, medicamentos_actuales, creado_en';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -124,10 +125,23 @@ app.get('/api/enfermedades', requireAuth, async (req, res) => {
 
 app.post('/api/diagnosticar', requireAuth, async (req, res) => {
   try {
-    const { sintomas } = req.body;
+    const { sintomas, paciente_id } = req.body;
 
     if (!sintomas || sintomas.length === 0) {
       return res.status(400).json({ error: 'Debe proporcionar al menos un síntoma.' });
+    }
+    if (!paciente_id || typeof paciente_id !== 'string') {
+      return res.status(400).json({ error: 'Debe indicar el paciente de esta consulta.' });
+    }
+
+    const { data: paciente, error: pacienteError } = await supabaseAdmin
+      .from('pacientes')
+      .select('id')
+      .eq('id', paciente_id)
+      .single();
+
+    if (pacienteError || !paciente) {
+      return res.status(400).json({ error: 'Paciente no encontrado.' });
     }
 
     const { data: usuarioActual } = await supabaseAdmin
@@ -148,6 +162,7 @@ app.post('/api/diagnosticar', requireAuth, async (req, res) => {
     const { data, error } = await supabaseAdmin.from('consultas').insert([
       {
         usuario_id: usuarioActual?.id || null,
+        paciente_id: paciente.id,
         sintomas_ingresados: sintomas,
         resultado: resultado,
       }
@@ -177,7 +192,7 @@ app.get('/api/consultas', requireAuth, async (req, res) => {
 
     let query = supabaseAdmin
       .from('consultas')
-      .select('*')
+      .select('*, pacientes(id, nombre)')
       .order('fecha', { ascending: false })
       .limit(limite);
 
@@ -228,6 +243,95 @@ app.patch('/api/consultas/:id', requireAuth, requireMedicoOAdmin, async (req, re
   } catch (error) {
     console.error('Error PATCH /api/consultas:', error.message);
     res.status(500).json({ error: 'Error al actualizar la consulta.' });
+  }
+});
+
+app.get('/api/pacientes', requireAuth, async (req, res) => {
+  try {
+    const termino = String(req.query.buscar || '').replace(/[^\p{L}\p{N}\s]/gu, '').trim();
+
+    if (!termino) {
+      return res.json([]);
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('pacientes')
+      .select(PACIENTE_COLUMNAS)
+      .or(`nombre.ilike.%${termino}%,documento.ilike.%${termino}%`)
+      .order('nombre', { ascending: true })
+      .limit(20);
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    console.error('Error GET /api/pacientes:', error.message);
+    res.status(500).json({ error: 'Error al buscar pacientes.' });
+  }
+});
+
+app.post('/api/pacientes', requireAuth, async (req, res) => {
+  try {
+    const { nombre, documento, fecha_nacimiento, alergias, condiciones_cronicas, medicamentos_actuales } = req.body;
+
+    if (typeof nombre !== 'string' || nombre.trim().length === 0 || nombre.length > 200) {
+      return res.status(400).json({ error: 'Nombre inválido — debe tener entre 1 y 200 caracteres.' });
+    }
+    if (documento !== undefined && documento !== null && (typeof documento !== 'string' || documento.length > 50)) {
+      return res.status(400).json({ error: 'Documento inválido — máximo 50 caracteres.' });
+    }
+    for (const [campo, valor] of [['alergias', alergias], ['condiciones_cronicas', condiciones_cronicas], ['medicamentos_actuales', medicamentos_actuales]]) {
+      if (valor !== undefined && valor !== null && (typeof valor !== 'string' || valor.length > 1000)) {
+        return res.status(400).json({ error: `${campo} inválido — máximo 1000 caracteres.` });
+      }
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('pacientes')
+      .insert([{
+        nombre: nombre.trim(),
+        documento: documento || null,
+        fecha_nacimiento: fecha_nacimiento || null,
+        alergias: alergias || null,
+        condiciones_cronicas: condiciones_cronicas || null,
+        medicamentos_actuales: medicamentos_actuales || null,
+      }])
+      .select(PACIENTE_COLUMNAS);
+
+    if (error) throw error;
+    res.json(data[0]);
+  } catch (error) {
+    console.error('Error POST /api/pacientes:', error.message);
+    res.status(500).json({ error: 'Error al registrar paciente.' });
+  }
+});
+
+app.get('/api/pacientes/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data: paciente, error: pacienteError } = await supabaseAdmin
+      .from('pacientes')
+      .select(PACIENTE_COLUMNAS)
+      .eq('id', id)
+      .single();
+
+    if (pacienteError || !paciente) {
+      return res.status(404).json({ error: 'Paciente no encontrado.' });
+    }
+
+    const { data: consultas, error: consultasError } = await supabaseAdmin
+      .from('consultas')
+      .select('*')
+      .eq('paciente_id', id)
+      .order('fecha', { ascending: false })
+      .limit(50);
+
+    if (consultasError) throw consultasError;
+
+    res.json({ ...paciente, consultas });
+  } catch (error) {
+    console.error('Error GET /api/pacientes/:id:', error.message);
+    res.status(500).json({ error: 'Error al obtener el paciente.' });
   }
 });
 

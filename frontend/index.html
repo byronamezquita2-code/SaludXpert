@@ -111,6 +111,66 @@ tailwind.config={theme:{extend:{"colors":{"on-primary":"#ffffff","on-secondary-c
   </main>
 </div>
 
+<!-- ============ PACIENTE ============ -->
+<div id="pantalla-paciente" class="pantalla">
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar-paciente"></aside>
+    <div class="shell-main">
+      <header class="topbar justify-between" id="topbar-paciente"></header>
+      <main class="shell-content">
+        <div class="flex flex-col w-full px-4 md:px-margin-desktop py-xl gap-lg max-w-3xl mx-auto">
+          <div>
+            <h1 class="text-display-lg font-display-lg text-on-surface mb-unit">Nueva Consulta</h1>
+            <p class="text-body-lg font-body-lg text-on-surface-variant">Busque al paciente o registre uno nuevo.</p>
+          </div>
+
+          <div class="bg-surface-container-lowest rounded-xl shadow-sm p-lg flex flex-col gap-md">
+            <label class="text-label-md text-on-surface" for="buscar-paciente">Buscar paciente por nombre o documento</label>
+            <input id="buscar-paciente" type="text" placeholder="Escriba al menos 2 letras..." autocomplete="off" class="w-full px-4 py-3 bg-surface rounded-lg border border-outline-variant focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-body-lg text-on-surface transition-all">
+            <div id="resultados-paciente" class="flex flex-col gap-sm"></div>
+          </div>
+
+          <div class="flex items-center gap-md">
+            <div class="flex-1 h-px bg-outline-variant"></div>
+            <span class="text-label-md text-on-surface-variant">o registre uno nuevo</span>
+            <div class="flex-1 h-px bg-outline-variant"></div>
+          </div>
+
+          <form id="form-nuevo-paciente" class="bg-surface-container-lowest rounded-xl shadow-sm p-lg flex flex-col gap-md">
+            <div class="flex flex-col gap-2">
+              <label class="text-label-md text-on-surface" for="paciente-nombre">Nombre completo *</label>
+              <input id="paciente-nombre" type="text" required class="w-full px-4 py-3 bg-surface rounded-lg border border-outline-variant focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-body-lg text-on-surface transition-all">
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-md">
+              <div class="flex flex-col gap-2">
+                <label class="text-label-md text-on-surface" for="paciente-documento">Documento (opcional)</label>
+                <input id="paciente-documento" type="text" class="w-full px-4 py-3 bg-surface rounded-lg border border-outline-variant focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-body-lg text-on-surface transition-all">
+              </div>
+              <div class="flex flex-col gap-2">
+                <label class="text-label-md text-on-surface" for="paciente-nacimiento">Fecha de nacimiento (opcional)</label>
+                <input id="paciente-nacimiento" type="date" class="w-full px-4 py-3 bg-surface rounded-lg border border-outline-variant focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-body-lg text-on-surface transition-all">
+              </div>
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="text-label-md text-on-surface" for="paciente-alergias">Alergias conocidas</label>
+              <input id="paciente-alergias" type="text" placeholder="Ej: Penicilina, mariscos..." class="w-full px-4 py-3 bg-surface rounded-lg border border-outline-variant focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-body-lg text-on-surface transition-all">
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="text-label-md text-on-surface" for="paciente-condiciones">Condiciones crónicas</label>
+              <input id="paciente-condiciones" type="text" placeholder="Ej: Diabetes, hipertensión..." class="w-full px-4 py-3 bg-surface rounded-lg border border-outline-variant focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-body-lg text-on-surface transition-all">
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="text-label-md text-on-surface" for="paciente-medicamentos">Medicamentos actuales</label>
+              <input id="paciente-medicamentos" type="text" class="w-full px-4 py-3 bg-surface rounded-lg border border-outline-variant focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-body-lg text-on-surface transition-all">
+            </div>
+            <button type="submit" class="h-12 px-lg mt-sm bg-primary text-on-primary rounded font-label-md text-label-md self-start shadow-sm hover:shadow-md transition-shadow">Registrar y continuar</button>
+          </form>
+        </div>
+      </main>
+    </div>
+  </div>
+</div>
+
 <!-- ============ NUEVA CONSULTA (síntomas) ============ -->
 <div id="pantalla-sintomas" class="pantalla">
   <div class="app-shell">
@@ -119,6 +179,7 @@ tailwind.config={theme:{extend:{"colors":{"on-primary":"#ffffff","on-secondary-c
       <header class="topbar justify-between" id="topbar-sintomas"></header>
       <main class="shell-content">
         <div class="flex flex-col w-full relative pb-24">
+          <div class="px-4 md:px-margin-desktop pt-xl" id="banner-paciente-sintomas"></div>
           <div class="px-4 md:px-margin-desktop py-xl flex flex-wrap gap-md justify-between items-center mb-lg">
             <div>
               <h1 class="text-display-lg font-display-lg text-on-surface mb-unit">Nueva Consulta</h1>
@@ -180,6 +241,8 @@ tailwind.config={theme:{extend:{"colors":{"on-primary":"#ffffff","on-secondary-c
       <header class="topbar justify-between" id="topbar-resultado"></header>
       <main class="shell-content">
         <div class="flex flex-col w-full px-4 md:px-margin-desktop py-lg gap-lg">
+
+          <div id="banner-paciente-resultado"></div>
 
           <div id="banner-advertencia" class="banner-advertencia" style="display:none;">
             <span class="material-symbols-outlined shrink-0">warning</span>
