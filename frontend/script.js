@@ -424,7 +424,7 @@ document.getElementById('buscar-paciente').addEventListener('input', (e) => {
         div.className = 'resultado-paciente historial-card';
         div.innerHTML = `
           <span class="paciente-nombre">${escaparHtml(p.nombre)}</span>
-          ${p.documento ? `<div class="paciente-doc">Documento: ${escaparHtml(p.documento)}</div>` : ''}
+          ${p.documento ? `<div class="paciente-doc">CUI/DPI: ${escaparHtml(p.documento)}</div>` : ''}
         `;
         div.addEventListener('click', () => seleccionarPaciente(p));
         contenedor.appendChild(div);
