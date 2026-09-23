@@ -22,6 +22,24 @@ jobs:
       - run: npm ci
       - run: npm test
 
+  frontend-css:
+    name: frontend (tailwind.css al día)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/tailwind
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tools/tailwind/package-lock.json
+      - run: npm ci
+      - run: npm run css
+      - name: frontend/tailwind.css debe coincidir con lo compilado
+        run: git diff --exit-code -- ../../frontend/tailwind.css
+
   motor-inferencia-smoke:
     name: motor-inferencia (smoke test — sin credenciales)
     runs-on: ubuntu-latest

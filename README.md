@@ -13,6 +13,7 @@ Cuatro componentes independientes, cada uno con su propio `package.json` /
 
 ```
 frontend/            HTML + CSS + JS vanilla (PWA) — UI clínica
+tools/tailwind/       Compila el CSS de Tailwind hacia frontend/tailwind.css
 api-backend/          Node + Express — API pública, auth y autorización por rol
 motor-inferencia/     Python + Flask + pgmpy — red bayesiana de diagnóstico
 pruebas-validacion/   Cucumber (Gherkin en español) — pruebas de aceptación end-to-end
@@ -90,6 +91,14 @@ node index.js
 ```
 
 ### 3. `frontend`
+
+El CSS de Tailwind está precompilado en `frontend/tailwind.css` (no se usa el
+CDN de desarrollo). Si agregas o cambias clases de Tailwind en `index.html` o
+`script.js`, recompílalo y sube el resultado — el CI falla si queda desfasado:
+
+```bash
+cd tools/tailwind && npm install && npm run css
+```
 
 Servir el directorio como archivos estáticos (por ejemplo con la extensión
 Live Server de VS Code en `http://127.0.0.1:5500`, que es el origen por

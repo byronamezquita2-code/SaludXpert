@@ -1,0 +1,10 @@
+{
+  "name": "tailwind-frontend",
+  "private": true,
+  "scripts": {
+    "css": "tailwindcss -c tailwind.config.js -i entrada.css -o ../../frontend/tailwind.css --minify"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.17"
+  }
+}
