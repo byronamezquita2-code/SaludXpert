@@ -388,15 +388,15 @@ document.getElementById('form-nueva-contrasena').addEventListener('submit', asyn
     mensajeError.textContent = 'Las contraseñas no coinciden.';
     return;
   }
-  if (nueva.length < 12) {
-    mensajeError.textContent = 'La contraseña debe tener al menos 12 caracteres.';
+  if (nueva.length < 8) {
+    mensajeError.textContent = 'La contraseña debe tener al menos 8 caracteres.';
     return;
   }
 
   const { error } = await supabaseClient.auth.updateUser({ password: nueva });
   if (error) {
     mensajeError.textContent = error.code === 'weak_password'
-      ? 'La contraseña es muy débil. Usa 12 o más caracteres, con mayúsculas, minúsculas y números.'
+      ? 'La contraseña es muy débil. Usa 8 o más caracteres, con mayúsculas, minúsculas y números.'
       : 'No se pudo guardar la contraseña. Intenta de nuevo.';
     return;
   }
