@@ -11,7 +11,9 @@ process.env.INTERNAL_SECRET ||= 'test-internal-secret';
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const request = require('supertest');
-const { app, validarDatosPaciente } = require('../app');
+const { createApp, validarDatosPaciente } = require('../app');
+
+const { app } = createApp();
 
 test('GET / responde 200 con el mensaje de estado', async () => {
   const res = await request(app).get('/');
