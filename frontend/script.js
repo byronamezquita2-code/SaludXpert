@@ -100,9 +100,20 @@ function mostrarPrompt(titulo, placeholder = '') {
   });
 }
 
+function fadeIn(selector, opts = {}) {
+  if (typeof gsap === 'undefined') return;
+  const elementos = typeof selector === 'string' ? document.querySelectorAll(selector) : selector;
+  if (!elementos || !elementos.length) return;
+  gsap.fromTo(elementos,
+    { opacity: 0, y: 14 },
+    { opacity: 1, y: 0, duration: 0.45, ease: 'power2.out', stagger: 0.06, ...opts }
+  );
+}
+
 function mostrarPantalla(id) {
   document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('activa'));
-  document.getElementById(id).classList.add('activa');
+  const pantalla = document.getElementById(id);
+  pantalla.classList.add('activa');
 
   document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('nav-link-active'));
   const mapa = {
@@ -115,6 +126,11 @@ function mostrarPantalla(id) {
   const activo = mapa[id];
   if (activo) {
     document.querySelectorAll(`.${activo}`).forEach(l => l.classList.add('nav-link-active'));
+  }
+
+  if (typeof gsap !== 'undefined') {
+    const titulo = pantalla.querySelector('h1');
+    if (titulo) fadeIn(titulo, { y: -10, stagger: 0 });
   }
 }
 
@@ -357,6 +373,9 @@ document.getElementById('form-nueva-contrasena').addEventListener('submit', asyn
 });
 
 (async function iniciarApp() {
+  fadeIn('#pantalla-login h1', { y: -10, stagger: 0 });
+  fadeIn('#form-login', { delay: 0.1, stagger: 0 });
+
   const manejadoPorEnlaceEspecial = await manejarEnlaceEspecial();
   if (!manejadoPorEnlaceEspecial) {
     await restaurarSesion();
@@ -467,6 +486,8 @@ document.getElementById('buscar-paciente').addEventListener('input', (e) => {
         });
         contenedor.appendChild(div);
       });
+
+      fadeIn('.resultado-paciente', { y: 8, stagger: 0.04, duration: 0.3 });
     } catch (error) {
       contenedor.innerHTML = '';
       console.error('Error buscando pacientes:', error);
@@ -527,6 +548,9 @@ async function cargarSintomas() {
         categorias[sintoma.categoria].appendChild(btn);
       }
     });
+
+    fadeIn('#pantalla-sintomas .bg-surface-container-lowest.shadow-sm', { stagger: 0.08 });
+    fadeIn('.btn-sintoma', { y: 8, stagger: 0.02, duration: 0.3 });
   } catch (error) {
     console.error('Error cargando síntomas:', error);
     await mostrarAlerta('Sin conexión', 'No se pudo conectar con el servidor. Verifica que la API esté corriendo.');
@@ -611,6 +635,9 @@ function mostrarResultado(resultado) {
     div.innerHTML = `<span>${escaparHtml(d.enfermedad)}</span><span>${d.confianza}%</span>`;
     alternativosDiv.appendChild(div);
   });
+
+  fadeIn('#resultado-principal .nombre-enfermedad', { y: -8, stagger: 0 });
+  fadeIn('.alt-card', { stagger: 0.08 });
 }
 
 document.getElementById('btn-confirmar').addEventListener('click', async () => {
@@ -758,6 +785,8 @@ async function cargarHistorial() {
       lista.appendChild(div);
     });
 
+    fadeIn('.historial-card', { stagger: 0.05 });
+
   } catch (error) {
     console.error('Error cargando historial:', error);
     lista.innerHTML = '<p class="estado-vacio">Error al cargar el historial.</p>';
@@ -844,6 +873,7 @@ async function cargarPanelAdmin() {
           `).join('')}
         </div>
       `;
+      fadeIn('.diagnostico-dia-card', { stagger: 0.05 });
     }
 
     const tbody = document.getElementById('tabla-usuarios-body');
@@ -866,6 +896,8 @@ async function cargarPanelAdmin() {
       `;
       tbody.appendChild(tr);
     });
+
+    fadeIn('#tabla-usuarios-body tr', { y: 6, stagger: 0.04, duration: 0.3 });
 
     if (esAdmin) {
       tbody.querySelectorAll('.btn-toggle').forEach(btn => {
