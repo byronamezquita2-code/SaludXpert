@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  api-backend:
+    name: api-backend (Node)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api-backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: api-backend/package-lock.json
+      - run: npm ci
+      - run: npm test
+
+  motor-inferencia-smoke:
+    name: motor-inferencia (smoke test — sin credenciales)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: motor-inferencia
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      # Solo valida que el código importa sin errores de sintaxis/dependencias.
+      # No ejecuta pytest aquí: test_motor.py llama a calcular_diagnostico(),
+      # que consulta datos reales en Supabase — no es un test unitario aislado,
+      # así que necesita las credenciales del job de abajo para tener sentido.
+      - run: python -m py_compile motor.py app.py
+
+  motor-inferencia-pytest:
+    name: motor-inferencia (pytest contra Supabase real)
+    runs-on: ubuntu-latest
+    # Este job solo corre si el repo tiene configurados los secretos de
+    # Supabase (Settings → Secrets and variables → Actions). Sin ellos se
+    # omite en vez de fallar — pytest aquí depende de datos reales de
+    # enfermedades/síntomas, no hay forma de mockearlo sin reescribir
+    # motor.py para aceptar un cliente inyectado.
+    if: ${{ vars.SUPABASE_TESTS_ENABLED == 'true' }}
+    defaults:
+      run:
+        working-directory: motor-inferencia
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest test_motor.py -v
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
