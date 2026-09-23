@@ -7,7 +7,6 @@ const { createClient } = require('@supabase/supabase-js');
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
 const allowedOrigins = (process.env.ALLOWED_ORIGIN || 'http://127.0.0.1:5500')
   .split(',')
@@ -469,6 +468,4 @@ app.patch('/api/usuarios/:id', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Servidor SaludXpert corriendo en puerto ${PORT}`);
-});
+module.exports = { app, validarDatosPaciente };
