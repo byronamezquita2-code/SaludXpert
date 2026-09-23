@@ -23,4 +23,4 @@ Característica: Diagnóstico preliminar de enfermedades
   Escenario: Obtener catálogo de síntomas disponibles
     Dado que el sistema está disponible
     Cuando se solicita la lista de síntomas
-    Entonces el sistema debe retornar exactamente 15 síntomas
+    Entonces el sistema debe retornar exactamente 23 síntomas
