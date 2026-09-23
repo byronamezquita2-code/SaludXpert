@@ -163,12 +163,18 @@ orden, qué hace cada uno y cómo verificar qué está aplicado.
 
 ## Respaldos
 
-Supabase Free no incluye respaldos automáticos. Para exportar todas las
-tablas a JSON (requiere `SUPABASE_SERVICE_KEY` en `api-backend/.env`):
+Supabase Free no incluye respaldos automáticos. Exporta todas las tablas
+(requiere `SUPABASE_SERVICE_KEY` en `api-backend/.env`):
 
 ```bash
-cd api-backend && npm run respaldo
+cd api-backend
+npm run respaldo:cifrado          # recomendado: un solo archivo .sxbk cifrado (AES-256-GCM)
+npm run respaldo                  # carpeta con JSON en texto plano
+npm run descifrar -- ../respaldos/<archivo>.sxbk
 ```
 
-Se guarda en `respaldos/<fecha>/` (ignorado por git). Contiene datos
-clínicos: guárdalo cifrado y fuera del repositorio.
+`respaldo:cifrado` pide una contraseña de 12+ caracteres (sin eco) y no deja
+ninguna copia en claro. Sin esa contraseña el respaldo no se puede abrir:
+guárdala en un gestor de contraseñas. Los respaldos quedan en `respaldos/`
+(ignorado por git) y contienen datos clínicos: cópialos a un disco externo
+y borra los que ya no necesites.

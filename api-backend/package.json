@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "node --test",
-    "respaldo": "node scripts/respaldo.js"
+    "respaldo": "node scripts/respaldo.js",
+    "respaldo:cifrado": "node scripts/respaldo.js --cifrar",
+    "descifrar": "node scripts/descifrar-respaldo.js"
   },
   "keywords": [],
   "author": "",
