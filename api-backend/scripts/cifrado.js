@@ -1,5 +1,4 @@
 const crypto = require('node:crypto');
-const readline = require('node:readline');
 
 const MAGIA = Buffer.from('SXBK1');
 const LARGO_MINIMO_CLAVE = 12;
@@ -35,17 +34,29 @@ function descifrar(archivo, clave) {
 
 function pedirClave(pregunta) {
   if (process.env.RESPALDO_CLAVE) return Promise.resolve(process.env.RESPALDO_CLAVE);
-  return new Promise(resolve => {
-    const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: true });
-    let silenciar = false;
-    rl._writeToOutput = texto => { if (!silenciar) process.stdout.write(texto); };
+  return new Promise((resolve, reject) => {
+    const entrada = process.stdin;
+    let texto = '';
     process.stdout.write(pregunta);
-    silenciar = true;
-    rl.question('', respuesta => {
-      rl.close();
+    entrada.setRawMode(true);
+    entrada.resume();
+    entrada.setEncoding('utf8');
+
+    const terminar = () => {
+      entrada.setRawMode(false);
+      entrada.pause();
+      entrada.removeListener('data', alRecibir);
       process.stdout.write('\n');
-      resolve(respuesta);
-    });
+    };
+    const alRecibir = tecla => {
+      for (const c of tecla) {
+        if (c === '\r' || c === '\n') { terminar(); return resolve(texto); }
+        if (c === '\u0003') { terminar(); return reject(new Error('Cancelado.')); }
+        if (c === '\u007f' || c === '\b') { texto = texto.slice(0, -1); continue; }
+        texto += c;
+      }
+    };
+    entrada.on('data', alRecibir);
   });
 }
 
