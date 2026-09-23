@@ -224,6 +224,16 @@ function capitalizar(s) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+// Escapa texto antes de insertarlo con innerHTML. Necesario sobre todo para
+// campos de texto libre que escribe el personal (diagnóstico definitivo,
+// nombre al agregar usuario) — sin esto, alguien podría meter HTML/script
+// ahí y ejecutarse en la pantalla de otro miembro del personal.
+function escaparHtml(texto) {
+  const div = document.createElement('div');
+  div.textContent = texto ?? '';
+  return div.innerHTML;
+}
+
 function actualizarTopbarUsuario() {
   document.querySelectorAll('.topbar-usuario-nombre').forEach(el => {
     el.textContent = usuarioActual ? usuarioActual.nombre : '';
@@ -239,7 +249,9 @@ async function cargarUsuarioActual() {
     const data = await apiFetch('/api/usuarios/me');
     usuarioActual = { correo: data.correo, nombre: data.nombre, rol: data.rol };
   } catch {
-    // Si falla (usuario nuevo sin registro en tabla) mantenemos los datos mínimos del JWT
+    // Si falla (p. ej. usuario nuevo sin registro en tabla "usuarios"), no hay
+    // datos de perfil disponibles — usuarioActual queda como estaba (null) y
+    // la topbar se muestra vacía hasta que el registro exista.
   }
   actualizarTopbarUsuario();
 }
@@ -445,11 +457,18 @@ function mostrarResultado(resultado) {
   const banner = document.getElementById('banner-advertencia');
   banner.style.display = resultado.confianza_suficiente ? 'none' : 'block';
 
+  // Solo médico/administrador pueden confirmar o descartar (el backend lo
+  // exige vía requireMedicoOAdmin) — enfermería solo genera el diagnóstico
+  // preliminar y lo deja pendiente para que un médico decida.
+  const puedeDecidir = ['medico', 'administrador'].includes(usuarioActual?.rol);
+  document.getElementById('btn-confirmar').style.display = puedeDecidir ? '' : 'none';
+  document.getElementById('btn-descartar').style.display = puedeDecidir ? '' : 'none';
+
   const diagnosticos = resultado.diagnosticos;
   const principal = diagnosticos[0];
 
   document.getElementById('resultado-principal').innerHTML = `
-    <div class="nombre-enfermedad">${principal.enfermedad}</div>
+    <div class="nombre-enfermedad">${escaparHtml(principal.enfermedad)}</div>
     <div class="confianza-header">
       <span class="confianza-label">Nivel de confianza</span>
       <span class="confianza-valor">${principal.confianza}%</span>
@@ -464,7 +483,7 @@ function mostrarResultado(resultado) {
   diagnosticos.slice(1).forEach(d => {
     const div = document.createElement('div');
     div.className = 'alt-card';
-    div.innerHTML = `<span>${d.enfermedad}</span><span>${d.confianza}%</span>`;
+    div.innerHTML = `<span>${escaparHtml(d.enfermedad)}</span><span>${d.confianza}%</span>`;
     alternativosDiv.appendChild(div);
   });
 }
@@ -542,6 +561,10 @@ async function cargarHistorial() {
       const hora = fecha.toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Guatemala' });
       const diagnosticoPrincipal = c.resultado?.diagnosticos?.[0];
       const pendiente = !c.decision_medico;
+      // Solo médico/administrador pueden confirmar o descartar — el backend
+      // ya lo exige (requireMedicoOAdmin en PATCH /api/consultas/:id), esto
+      // solo evita mostrarle a enfermería botones que fallarían con 403.
+      const puedeDecidir = ['medico', 'administrador'].includes(usuarioActual?.rol);
 
       const estadoBadge = c.decision_medico === 'confirmado'
         ? '<span style="color:#2E7D32; font-weight:600;">✓ Confirmado</span>'
@@ -555,9 +578,9 @@ async function cargarHistorial() {
       div.innerHTML = `
         <div class="historial-hora">${hora} — ${estadoBadge}</div>
         <div class="historial-diagnostico">
-          ${diagnosticoPrincipal ? diagnosticoPrincipal.enfermedad + ' — ' + diagnosticoPrincipal.confianza + '%' : 'Sin diagnóstico'}
+          ${diagnosticoPrincipal ? escaparHtml(diagnosticoPrincipal.enfermedad) + ' — ' + diagnosticoPrincipal.confianza + '%' : 'Sin diagnóstico'}
         </div>
-        <div class="historial-sintomas">Síntomas: ${c.sintomas_ingresados.join(', ')}</div>
+        <div class="historial-sintomas">Síntomas: ${escaparHtml(c.sintomas_ingresados.join(', '))}</div>
         <div class="historial-detalle" style="display:none; margin-top:12px;"></div>
       `;
 
@@ -571,7 +594,7 @@ async function cargarHistorial() {
         detalle.style.display = abierto ? 'none' : 'block';
 
         if (!abierto && detalle.innerHTML === '') {
-          if (pendiente) {
+          if (pendiente && puedeDecidir) {
             detalle.innerHTML = `
               <div style="display:flex; gap:10px; flex-wrap:wrap;">
                 <button class="historial-accion btn-toggle activar" data-id="${c.id}" data-accion="confirmar">Confirmar diagnóstico</button>
@@ -600,8 +623,10 @@ async function cargarHistorial() {
                 await cargarHistorial();
               });
             });
+          } else if (pendiente) {
+            detalle.innerHTML = `<div class="historial-sintomas">Pendiente de confirmación por un médico o administrador.</div>`;
           } else {
-            detalle.innerHTML = `<div class="historial-sintomas">Diagnóstico definitivo: ${c.diagnostico_definitivo || (diagnosticoPrincipal ? diagnosticoPrincipal.enfermedad : '—')}</div>`;
+            detalle.innerHTML = `<div class="historial-sintomas">Diagnóstico definitivo: ${escaparHtml(c.diagnostico_definitivo || (diagnosticoPrincipal ? diagnosticoPrincipal.enfermedad : '—'))}</div>`;
           }
         }
       });
@@ -673,11 +698,14 @@ async function cargarPanelAdmin() {
     ]);
 
     // Estadísticas
+    // /api/consultas ya retorna solo el turno de hoy (hora Guatemala) por
+    // defecto, así que no hace falta (ni conviene) refiltrar aquí con la
+    // fecha UTC del navegador — eso desalineaba el conteo cerca de la
+    // medianoche.
     document.getElementById('stat-usuarios-activos').textContent = esAdmin
       ? usuarios.filter(u => u.activo).length
       : usuarios.length;
-    const hoy = new Date().toISOString().split('T')[0];
-    const consultasHoy = consultas.filter(c => c.fecha.startsWith(hoy));
+    const consultasHoy = consultas;
     document.getElementById('stat-consultas-hoy').textContent = consultasHoy.length;
 
     // ── Diagnósticos del día agrupados ──
@@ -699,7 +727,7 @@ async function cargarPanelAdmin() {
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-md">
           ${ordenado.map(([enfermedad, cantidad]) => `
             <div class="diagnostico-dia-card">
-              <span class="diagnostico-dia-nombre">${enfermedad}</span>
+              <span class="diagnostico-dia-nombre">${escaparHtml(enfermedad)}</span>
               <span class="diagnostico-dia-count">${cantidad}</span>
             </div>
           `).join('')}
@@ -720,9 +748,9 @@ async function cargarPanelAdmin() {
           </td>`
         : '';
       tr.innerHTML = `
-        <td>${u.nombre}</td>
-        <td>${u.correo}</td>
-        <td><span class="rol-badge rol-${u.rol}">${u.rol}</span></td>
+        <td>${escaparHtml(u.nombre)}</td>
+        <td>${escaparHtml(u.correo)}</td>
+        <td><span class="rol-badge rol-${u.rol}">${escaparHtml(u.rol)}</span></td>
         <td>${u.activo ? 'Activo' : 'Inactivo'}</td>
         ${accionTd}
       `;

@@ -88,7 +88,7 @@ async function requireMedicoOAdmin(req, res, next) {
   try {
     const { data, error } = await supabaseAdmin
       .from('usuarios')
-      .select('rol')
+      .select('id, rol')
       .eq('auth_id', req.authUser.id)
       .single();
 
@@ -99,6 +99,7 @@ async function requireMedicoOAdmin(req, res, next) {
       return res.status(403).json({ error: 'Acceso denegado.' });
     }
     req.rolUsuario = data.rol;
+    req.usuarioId = data.id;
     next();
   } catch (err) {
     res.status(500).json({ error: 'Error verificando permisos.' });
@@ -220,7 +221,10 @@ app.get('/api/consultas', requireAuth, async (req, res) => {
 });
 
 // ── Actualizar decisión médica ────────────────────────────────────────────────
-app.patch('/api/consultas/:id', requireAuth, async (req, res) => {
+// Solo médicos y administradores pueden confirmar/descartar un diagnóstico —
+// enfermería puede ver el historial (GET /api/consultas) pero no decidir
+// sobre él. Se registra quién tomó la decisión en actualizado_por.
+app.patch('/api/consultas/:id', requireAuth, requireMedicoOAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { decision_medico, diagnostico_definitivo } = req.body;
@@ -234,6 +238,7 @@ app.patch('/api/consultas/:id', requireAuth, async (req, res) => {
       .update({
         decision_medico,
         diagnostico_definitivo: diagnostico_definitivo || null,
+        actualizado_por: req.usuarioId,
       })
       .eq('id', id)
       .select();
