@@ -8,8 +8,6 @@ let listaSintomas = [];
 let ultimoResultado = null;
 let usuarioActual = null;
 
-// ── Helper de fetch autenticado ───────────────────────────────────────────────
-// Incluye el JWT de Supabase en cada petición a nuestra API.
 async function apiFetch(path, options = {}) {
   const { data: sessionData } = await supabaseClient.auth.getSession();
   const token = sessionData?.session?.access_token;
@@ -20,12 +18,14 @@ async function apiFetch(path, options = {}) {
     ...(options.headers || {}),
   };
 
-  const response = await fetch(`${API_URL}${path}`, { ...options, headers });
+  let response;
+  try {
+    response = await fetch(`${API_URL}${path}`, { ...options, headers });
+  } catch {
+    throw new Error('Sin conexión — revisa tu internet e intenta de nuevo.');
+  }
 
   if (response.status === 401) {
-    // Token ausente/inválido/expirado — la sesión de Supabase ya no sirve
-    // para nada útil en el backend. Cerrarla y mandar a login en vez de
-    // dejar que cada pantalla muestre su propio error genérico.
     await supabaseClient.auth.signOut();
     usuarioActual = null;
     mostrarPantalla('pantalla-login');
@@ -40,7 +40,6 @@ async function apiFetch(path, options = {}) {
   return response.json();
 }
 
-// ── Modal personalizado (reemplaza alert / prompt) ────────────────────────────
 const appDialog = document.getElementById('app-dialog');
 const dialogTitle = document.getElementById('dialog-title');
 const dialogBody = document.getElementById('dialog-body');
@@ -48,11 +47,6 @@ const dialogInput = document.getElementById('dialog-input');
 const dialogConfirm = document.getElementById('dialog-confirm');
 const dialogCancel = document.getElementById('dialog-cancel');
 
-/**
- * Muestra un mensaje informativo (reemplaza alert).
- * @param {string} titulo
- * @param {string} mensaje
- */
 function mostrarAlerta(titulo, mensaje) {
   return new Promise(resolve => {
     dialogTitle.textContent = titulo;
@@ -71,12 +65,6 @@ function mostrarAlerta(titulo, mensaje) {
   });
 }
 
-/**
- * Muestra un input de texto (reemplaza prompt).
- * Resuelve con el valor ingresado o null si cancela.
- * @param {string} titulo
- * @param {string} placeholder
- */
 function mostrarPrompt(titulo, placeholder = '') {
   return new Promise(resolve => {
     dialogTitle.textContent = titulo;
@@ -110,12 +98,10 @@ function mostrarPrompt(titulo, placeholder = '') {
   });
 }
 
-// ── Navegación ────────────────────────────────────────────────────────────────
 function mostrarPantalla(id) {
   document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('activa'));
   document.getElementById(id).classList.add('activa');
 
-  // Actualizar estado activo del nav en la pantalla visible
   document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('nav-link-active'));
   const mapa = {
     'pantalla-sintomas': 'nav-nueva',
@@ -129,7 +115,6 @@ function mostrarPantalla(id) {
   }
 }
 
-// ── Sidebar y Topbar (generados una sola vez) ─────────────────────────────────
 function logoSVG() {
   return `<svg class="w-7 h-7 text-primary" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M12 2L3 6v6c0 5 4 9 9 10 5-1 9-5 9-10V6l-9-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
@@ -137,18 +122,12 @@ function logoSVG() {
   </svg>`;
 }
 
-/**
- * Construye el sidebar HTML para una pantalla.
- * rol: 'administrador' muestra "Administración" (con gestión de usuarios),
- * 'medico' muestra "Equipo" (solo lectura: médicos + diagnósticos del día),
- * cualquier otro rol (enfermería) no ve ese enlace.
- */
 function sidebarHTML(rol) {
   const esAdmin = rol === 'administrador';
   const esMedico = rol === 'medico';
   const adminLink = (esAdmin || esMedico)
-    ? `<span class="nav-link nav-admin" id="nav-admin-link">
-         <span class="material-symbols-outlined mr-md">${esAdmin ? 'admin_panel_settings' : 'groups'}</span>
+    ? `<span class="nav-link nav-admin" id="nav-admin-link" role="button" tabindex="0" aria-label="${esAdmin ? 'Administración' : 'Equipo'}">
+         <span class="material-symbols-outlined mr-md" aria-hidden="true">${esAdmin ? 'admin_panel_settings' : 'groups'}</span>
          <span class="font-label-md text-label-md">${esAdmin ? 'Administración' : 'Equipo'}</span>
        </span>`
     : '';
@@ -158,13 +137,13 @@ function sidebarHTML(rol) {
       ${logoSVG()}
       <span class="font-headline-sm text-headline-sm text-primary">SaludXpert</span>
     </div>
-    <nav class="flex-1 flex flex-col gap-xs px-md pt-lg">
-      <span class="nav-link nav-nueva" id="nav-nueva-link">
-        <span class="material-symbols-outlined mr-md">add_circle</span>
+    <nav class="flex-1 flex flex-col gap-xs px-md pt-lg" aria-label="Navegación principal">
+      <span class="nav-link nav-nueva" id="nav-nueva-link" role="button" tabindex="0" aria-label="Nueva Consulta">
+        <span class="material-symbols-outlined mr-md" aria-hidden="true">add_circle</span>
         <span class="font-label-md text-label-md">Nueva Consulta</span>
       </span>
-      <span class="nav-link nav-historial" id="nav-historial-link">
-        <span class="material-symbols-outlined mr-md">history</span>
+      <span class="nav-link nav-historial" id="nav-historial-link" role="button" tabindex="0" aria-label="Historial">
+        <span class="material-symbols-outlined mr-md" aria-hidden="true">history</span>
         <span class="font-label-md text-label-md">Historial</span>
       </span>
       ${adminLink}
@@ -198,26 +177,37 @@ function inyectarShell(rol) {
   registrarEventosShell();
 }
 
-function registrarEventosShell() {
-  // Nav: Nueva Consulta
-  document.querySelectorAll('#nav-nueva-link').forEach(el =>
-    el.addEventListener('click', reiniciarConsulta));
+function activarConTeclado(el) {
+  el.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      el.click();
+    }
+  });
+}
 
-  // Nav: Historial
-  document.querySelectorAll('#nav-historial-link').forEach(el =>
+function registrarEventosShell() {
+  document.querySelectorAll('#nav-nueva-link').forEach(el => {
+    el.addEventListener('click', reiniciarConsulta);
+    activarConTeclado(el);
+  });
+
+  document.querySelectorAll('#nav-historial-link').forEach(el => {
     el.addEventListener('click', async () => {
       await cargarHistorial();
       mostrarPantalla('pantalla-historial');
-    }));
+    });
+    activarConTeclado(el);
+  });
 
-  // Nav: Admin
-  document.querySelectorAll('#nav-admin-link').forEach(el =>
+  document.querySelectorAll('#nav-admin-link').forEach(el => {
     el.addEventListener('click', async () => {
       await cargarPanelAdmin();
       mostrarPantalla('pantalla-admin');
-    }));
+    });
+    activarConTeclado(el);
+  });
 
-  // Logout
   document.querySelectorAll('.btn-logout').forEach(btn =>
     btn.addEventListener('click', async () => {
       await supabaseClient.auth.signOut();
@@ -228,16 +218,11 @@ function registrarEventosShell() {
     }));
 }
 
-// ── Topbar: nombre y rol del usuario ─────────────────────────────────────────
 function capitalizar(s) {
   if (!s) return '';
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-// Escapa texto antes de insertarlo con innerHTML. Necesario sobre todo para
-// campos de texto libre que escribe el personal (diagnóstico definitivo,
-// nombre al agregar usuario) — sin esto, alguien podría meter HTML/script
-// ahí y ejecutarse en la pantalla de otro miembro del personal.
 function escaparHtml(texto) {
   const div = document.createElement('div');
   div.textContent = texto ?? '';
@@ -253,20 +238,15 @@ function actualizarTopbarUsuario() {
   });
 }
 
-// Usa el nuevo endpoint /me en lugar de descargar TODOS los usuarios
 async function cargarUsuarioActual() {
   try {
     const data = await apiFetch('/api/usuarios/me');
     usuarioActual = { correo: data.correo, nombre: data.nombre, rol: data.rol };
   } catch {
-    // Si falla (p. ej. usuario nuevo sin registro en tabla "usuarios"), no hay
-    // datos de perfil disponibles — usuarioActual queda como estaba (null) y
-    // la topbar se muestra vacía hasta que el registro exista.
   }
   actualizarTopbarUsuario();
 }
 
-// ── Sesión persistente (no regresar a login al refrescar) ─────────────────────
 async function restaurarSesion() {
   const { data: sessionData } = await supabaseClient.auth.getSession();
   if (sessionData?.session) {
@@ -277,17 +257,10 @@ async function restaurarSesion() {
   }
 }
 
-// ── Invitación / recuperación de contraseña ───────────────────────────────────
-// Cuando el usuario llega desde el enlace de un correo de invitación o de
-// recuperación de contraseña, Supabase inicia sesión automáticamente usando
-// el token que viene en la URL (#access_token=...&type=invite|recovery).
-// Sin esta pantalla intermedia, el usuario quedaría "adentro" de la app sin
-// haber definido nunca una contraseña propia.
 function esEnlaceDeInvitacionORecuperacion() {
   return /type=invite|type=recovery/.test(window.location.hash);
 }
 
-// Espera a que supabase-js procese el token de la URL y deje la sesión lista.
 async function esperarSesionDesdeEnlace(intentos = 20) {
   for (let i = 0; i < intentos; i++) {
     const { data } = await supabaseClient.auth.getSession();
@@ -302,7 +275,6 @@ async function manejarEnlaceEspecial() {
 
   const sesionLista = await esperarSesionDesdeEnlace();
 
-  // Limpiar el hash para que un refresh no vuelva a disparar este flujo.
   history.replaceState(null, '', window.location.pathname + window.location.search);
 
   if (!sesionLista) {
@@ -344,7 +316,6 @@ document.getElementById('form-nueva-contrasena').addEventListener('submit', asyn
   cargarSintomas();
 });
 
-// Ejecutar al cargar la página
 (async function iniciarApp() {
   const manejadoPorEnlaceEspecial = await manejarEnlaceEspecial();
   if (!manejadoPorEnlaceEspecial) {
@@ -352,7 +323,6 @@ document.getElementById('form-nueva-contrasena').addEventListener('submit', asyn
   }
 })();
 
-// ── LOGIN ─────────────────────────────────────────────────────────────────────
 document.getElementById('form-login').addEventListener('submit', async (e) => {
   e.preventDefault();
 
@@ -377,7 +347,6 @@ document.getElementById('form-login').addEventListener('submit', async (e) => {
   cargarSintomas();
 });
 
-// ── Recuperar contraseña ──────────────────────────────────────────────────────
 document.getElementById('link-recuperar').addEventListener('click', async () => {
   const correo = await mostrarPrompt('Recuperar contraseña', 'tu@correo.com');
   if (!correo) return;
@@ -390,7 +359,6 @@ document.getElementById('link-recuperar').addEventListener('click', async () => 
   }
 });
 
-// ── Síntomas ──────────────────────────────────────────────────────────────────
 async function cargarSintomas() {
   try {
     listaSintomas = await apiFetch('/api/sintomas');
@@ -431,7 +399,6 @@ function toggleSintoma(btn, nombre) {
   document.getElementById('contador-sintomas').textContent = `${sintomasSeleccionados.length} síntomas`;
 }
 
-// ── Analizar síntomas ─────────────────────────────────────────────────────────
 document.getElementById('btn-analizar').addEventListener('click', async () => {
   if (sintomasSeleccionados.length === 0) {
     await mostrarAlerta('Sin síntomas', 'Debe seleccionar al menos un síntoma antes de continuar.');
@@ -454,7 +421,7 @@ document.getElementById('btn-analizar').addEventListener('click', async () => {
     mostrarPantalla('pantalla-resultado');
   } catch (error) {
     console.error('Error al diagnosticar:', error);
-    await mostrarAlerta('Error', 'No se pudo procesar el diagnóstico. Intente nuevamente.');
+    await mostrarAlerta('Error', error.message || 'No se pudo procesar el diagnóstico. Intente nuevamente.');
   } finally {
     btn.disabled = false;
     btn.classList.remove('btn-loading');
@@ -462,14 +429,10 @@ document.getElementById('btn-analizar').addEventListener('click', async () => {
   }
 });
 
-// ── Mostrar resultado ─────────────────────────────────────────────────────────
 function mostrarResultado(resultado) {
   const banner = document.getElementById('banner-advertencia');
   banner.style.display = resultado.confianza_suficiente ? 'none' : 'block';
 
-  // Solo médico/administrador pueden confirmar o descartar (el backend lo
-  // exige vía requireMedicoOAdmin) — enfermería solo genera el diagnóstico
-  // preliminar y lo deja pendiente para que un médico decida.
   const puedeDecidir = ['medico', 'administrador'].includes(usuarioActual?.rol);
   document.getElementById('btn-confirmar').style.display = puedeDecidir ? '' : 'none';
   document.getElementById('btn-descartar').style.display = puedeDecidir ? '' : 'none';
@@ -498,7 +461,6 @@ function mostrarResultado(resultado) {
   });
 }
 
-// ── Confirmar / Descartar ─────────────────────────────────────────────────────
 document.getElementById('btn-confirmar').addEventListener('click', async () => {
   if (!ultimoResultado?.consulta_id) {
     await mostrarAlerta('Error', 'No se encontró la consulta a confirmar.');
@@ -512,8 +474,8 @@ document.getElementById('btn-confirmar').addEventListener('click', async () => {
     });
     await mostrarAlerta('Confirmado', 'Diagnóstico confirmado y registrado.');
     reiniciarConsulta();
-  } catch {
-    await mostrarAlerta('Error', 'No se pudo guardar la confirmación.');
+  } catch (error) {
+    await mostrarAlerta('Error', error.message || 'No se pudo guardar la confirmación.');
   }
 });
 
@@ -533,8 +495,8 @@ document.getElementById('btn-descartar').addEventListener('click', async () => {
     });
     await mostrarAlerta('Registrado', `Sugerencia descartada. Diagnóstico registrado: ${diagnosticoDefinitivo}`);
     reiniciarConsulta();
-  } catch {
-    await mostrarAlerta('Error', 'No se pudo guardar el descarte.');
+  } catch (error) {
+    await mostrarAlerta('Error', error.message || 'No se pudo guardar el descarte.');
   }
 });
 
@@ -547,7 +509,6 @@ function reiniciarConsulta() {
   mostrarPantalla('pantalla-sintomas');
 }
 
-// ── Historial ─────────────────────────────────────────────────────────────────
 document.getElementById('btn-ver-historial').addEventListener('click', async () => {
   await cargarHistorial();
   mostrarPantalla('pantalla-historial');
@@ -571,9 +532,6 @@ async function cargarHistorial() {
       const hora = fecha.toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Guatemala' });
       const diagnosticoPrincipal = c.resultado?.diagnosticos?.[0];
       const pendiente = !c.decision_medico;
-      // Solo médico/administrador pueden confirmar o descartar — el backend
-      // ya lo exige (requireMedicoOAdmin en PATCH /api/consultas/:id), esto
-      // solo evita mostrarle a enfermería botones que fallarían con 403.
       const puedeDecidir = ['medico', 'administrador'].includes(usuarioActual?.rol);
 
       const estadoBadge = c.decision_medico === 'confirmado'
@@ -617,20 +575,24 @@ async function cargarHistorial() {
                 const id = btn.dataset.id;
                 const accion = btn.dataset.accion;
 
-                if (accion === 'confirmar') {
-                  await apiFetch(`/api/consultas/${id}`, {
-                    method: 'PATCH',
-                    body: JSON.stringify({ decision_medico: 'confirmado' }),
-                  });
-                } else {
-                  const diagnosticoDefinitivo = await mostrarPrompt('Diagnóstico definitivo', 'Escriba el diagnóstico del médico...');
-                  if (!diagnosticoDefinitivo) return;
-                  await apiFetch(`/api/consultas/${id}`, {
-                    method: 'PATCH',
-                    body: JSON.stringify({ decision_medico: 'descartado', diagnostico_definitivo: diagnosticoDefinitivo }),
-                  });
+                try {
+                  if (accion === 'confirmar') {
+                    await apiFetch(`/api/consultas/${id}`, {
+                      method: 'PATCH',
+                      body: JSON.stringify({ decision_medico: 'confirmado' }),
+                    });
+                  } else {
+                    const diagnosticoDefinitivo = await mostrarPrompt('Diagnóstico definitivo', 'Escriba el diagnóstico del médico...');
+                    if (!diagnosticoDefinitivo) return;
+                    await apiFetch(`/api/consultas/${id}`, {
+                      method: 'PATCH',
+                      body: JSON.stringify({ decision_medico: 'descartado', diagnostico_definitivo: diagnosticoDefinitivo }),
+                    });
+                  }
+                  await cargarHistorial();
+                } catch (error) {
+                  await mostrarAlerta('Error', error.message || 'No se pudo guardar el cambio.');
                 }
-                await cargarHistorial();
               });
             });
           } else if (pendiente) {
@@ -650,7 +612,6 @@ async function cargarHistorial() {
   }
 }
 
-// ── Panel de administración ───────────────────────────────────────────────────
 document.getElementById('btn-agregar-usuario').addEventListener('click', async () => {
   const nombre = await mostrarPrompt('Nombre del usuario', 'Nombre completo');
   if (!nombre) return;
@@ -679,7 +640,6 @@ document.getElementById('btn-agregar-usuario').addEventListener('click', async (
 async function cargarPanelAdmin() {
   const esAdmin = usuarioActual?.rol === 'administrador';
 
-  // Textos y controles que difieren entre administrador y médico
   document.getElementById('titulo-panel-admin').textContent = esAdmin
     ? 'Panel de Administración'
     : 'Equipo y Diagnósticos del Día';
@@ -699,38 +659,27 @@ async function cargarPanelAdmin() {
   if (thAcciones) thAcciones.style.display = esAdmin ? '' : 'none';
 
   try {
-    // El backend ya filtra a solo médicos cuando quien consulta es médico
-    // (ver requireMedicoOAdmin en api-backend), así que "usuarios" aquí ya
-    // es la lista correcta para cada rol.
     const [usuarios, consultas] = await Promise.all([
       apiFetch('/api/usuarios'),
       apiFetch('/api/consultas'),
     ]);
 
-    // Estadísticas
-    // /api/consultas ya retorna solo el turno de hoy (hora Guatemala) por
-    // defecto, así que no hace falta (ni conviene) refiltrar aquí con la
-    // fecha UTC del navegador — eso desalineaba el conteo cerca de la
-    // medianoche.
     document.getElementById('stat-usuarios-activos').textContent = esAdmin
       ? usuarios.filter(u => u.activo).length
       : usuarios.length;
     const consultasHoy = consultas;
     document.getElementById('stat-consultas-hoy').textContent = consultasHoy.length;
 
-    // ── Diagnósticos del día agrupados ──
     const container = document.getElementById('diagnosticos-dia-container');
     if (consultasHoy.length === 0) {
       container.innerHTML = '<p class="text-body-md text-on-surface-variant" style="padding:20px 0; text-align:center;">Sin consultas registradas hoy.</p>';
     } else {
-      // Contar enfermedades
       const conteo = {};
       consultasHoy.forEach(c => {
         const enfermedad = c.resultado?.diagnosticos?.[0]?.enfermedad || 'Sin diagnóstico';
         conteo[enfermedad] = (conteo[enfermedad] || 0) + 1;
       });
 
-      // Ordenar de mayor a menor
       const ordenado = Object.entries(conteo).sort((a, b) => b[1] - a[1]);
 
       container.innerHTML = `
@@ -745,7 +694,6 @@ async function cargarPanelAdmin() {
       `;
     }
 
-    // Tabla de usuarios / equipo médico (solo lectura para médicos)
     const tbody = document.getElementById('tabla-usuarios-body');
     tbody.innerHTML = '';
     usuarios.forEach(u => {
@@ -771,11 +719,15 @@ async function cargarPanelAdmin() {
       tbody.querySelectorAll('.btn-toggle').forEach(btn => {
         btn.addEventListener('click', async () => {
           const activoActual = btn.dataset.activo === 'true';
-          await apiFetch(`/api/usuarios/${btn.dataset.id}`, {
-            method: 'PATCH',
-            body: JSON.stringify({ activo: !activoActual }),
-          });
-          await cargarPanelAdmin();
+          try {
+            await apiFetch(`/api/usuarios/${btn.dataset.id}`, {
+              method: 'PATCH',
+              body: JSON.stringify({ activo: !activoActual }),
+            });
+            await cargarPanelAdmin();
+          } catch (error) {
+            await mostrarAlerta('Error', error.message || 'No se pudo actualizar el usuario.');
+          }
         });
       });
     }

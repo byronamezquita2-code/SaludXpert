@@ -1,23 +1,28 @@
+require('dotenv').config();
 const { Given, When, Then, Before } = require('@cucumber/cucumber');
 const assert = require('assert');
 const axios = require('axios');
 const { createClient } = require('@supabase/supabase-js');
 
-const API_URL = 'http://localhost:3000';
+const API_URL = process.env.TEST_API_URL || 'http://localhost:3000';
 
-// Credenciales de prueba — deben existir en Supabase Auth
-const TEST_EMAIL = 'byronamezquita2@gmail.com';
-const TEST_PASSWORD = '123456';
+const TEST_EMAIL = process.env.TEST_EMAIL;
+const TEST_PASSWORD = process.env.TEST_PASSWORD;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY;
 
-// Supabase client para obtener el JWT
-const SUPABASE_URL = 'https://bpisojfqhsaisfvnwhpr.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_I0o7hKokgpc5hyIcBZeRQg_nLHEm60L';
+if (!TEST_EMAIL || !TEST_PASSWORD || !SUPABASE_URL || !SUPABASE_KEY) {
+  throw new Error(
+    'Faltan variables de entorno para las pruebas (TEST_EMAIL, TEST_PASSWORD, ' +
+    'SUPABASE_URL, SUPABASE_KEY). Revisa pruebas-validacion/.env'
+  );
+}
+
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let respuestaActual = null;
 let authToken = null;
 
-// ── Obtener JWT antes de los escenarios ───────────────────────────────────────
 Before(async function () {
   if (!authToken) {
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -29,7 +34,6 @@ Before(async function () {
   }
 });
 
-// Helper: petición autenticada
 function apiAuth() {
   return axios.create({
     baseURL: API_URL,
@@ -37,10 +41,7 @@ function apiAuth() {
   });
 }
 
-// ── Steps ─────────────────────────────────────────────────────────────────────
-
 Given('que el sistema está disponible', async function () {
-  // La ruta raíz no requiere auth
   const response = await axios.get(`${API_URL}/`);
   assert.strictEqual(response.status, 200);
 });

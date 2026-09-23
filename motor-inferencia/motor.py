@@ -6,7 +6,6 @@ from supabase import create_client, Client
 from pgmpy.inference import VariableElimination
 from pgmpy.factors.discrete import TabularCPD
 
-# La clase se llama distinto según la versión de pgmpy instalada.
 try:
     from pgmpy.models import DiscreteBayesianNetwork as BayesianNetwork
 except ImportError:
@@ -15,7 +14,6 @@ except ImportError:
     except ImportError:
         from pgmpy.models import BayesianModel as BayesianNetwork
 
-# Cargar variables de entorno
 load_dotenv()
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
@@ -23,15 +21,9 @@ SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Probabilidad de que un síntoma esté presente en una enfermedad con la que
-# NO tiene una relación registrada en la base de datos. Actúa como CPD por
-# defecto para los pares (enfermedad, síntoma) sin dato explícito.
 PENALIZACION_SINTOMA_AUSENTE = 0.05
 
-# ── Caché en memoria ────
-# Los datos (y el modelo bayesiano construido a partir de ellos) se
-# refrescan automáticamente cada TTL_SEGUNDOS.
-TTL_SEGUNDOS = 300  # 5 minutos
+TTL_SEGUNDOS = 300
 
 _cache = {
     "enfermedades": None,
@@ -57,57 +49,36 @@ def _refrescar_cache():
 
 
 def _obtener_datos():
-    """Devuelve (enfermedades, sintomas, relaciones) desde caché o Supabase."""
     if not _cache_valida():
         _refrescar_cache()
     return _cache["enfermedades"], _cache["sintomas"], _cache["relaciones"]
 
 
 def _obtener_modelo() -> "BayesianNetwork":
-    """Devuelve la red bayesiana ya construida (desde caché o recién armada)."""
     if not _cache_valida():
         _refrescar_cache()
     return _cache["modelo"]
 
 
-# ── Funciones de acceso individuales (mantenidas para compatibilidad) ─────────
-
 def obtener_enfermedades():
-    """Trae todas las enfermedades (con caché)."""
     enfs, _, _ = _obtener_datos()
     return enfs
 
 
 def obtener_sintomas():
-    """Trae todos los síntomas (con caché)."""
     _, sins, _ = _obtener_datos()
     return sins
 
 
 def obtener_relaciones():
-    """Trae las relaciones enfermedad-síntoma con sus probabilidades (con caché)."""
     _, _, rels = _obtener_datos()
     return rels
 
 
 def _construir_modelo(enfermedades, sintomas, relaciones) -> "BayesianNetwork":
-    """
-    Construye la red bayesiana a partir de los datos en Supabase.
-
-    Topología: un nodo raíz "Enfermedad" (una enfermedad por estado) del que
-    dependen todos los nodos "síntoma" (binarios: Ausente/Presente). Cada
-    arista Enfermedad -> Síntoma tiene su propia CPD, tomada de la tabla
-    enfermedad_sintoma cuando existe una relación registrada, o usando
-    PENALIZACION_SINTOMA_AUSENTE como probabilidad base cuando no la hay.
-
-    Esta estructura es la red bayesiana propiamente dicha (nodos + aristas +
-    tablas de probabilidad condicional), sobre la que luego se corre
-    inferencia exacta (eliminación de variables) en calcular_diagnostico().
-    """
     nombres_enfermedades = [e["nombre"] for e in enfermedades]
     nombres_sintomas = [s["nombre"] for s in sintomas]
 
-    # Normalizar los priors por si en la base de datos no suman exactamente 1.
     total_prior = sum(e["probabilidad_prior"] for e in enfermedades) or 1
     priors = [e["probabilidad_prior"] / total_prior for e in enfermedades]
 
@@ -135,7 +106,6 @@ def _construir_modelo(enfermedades, sintomas, relaciones) -> "BayesianNetwork":
             prob = relacion_por_par.get(
                 (enfermedad["id"], sintoma["id"]), PENALIZACION_SINTOMA_AUSENTE
             )
-            # Clamp para que la CPD sea siempre una distribución válida.
             prob = min(max(float(prob), 0.0001), 0.9999)
             p_presente.append(prob)
         p_ausente = [1 - p for p in p_presente]
@@ -160,11 +130,6 @@ def _construir_modelo(enfermedades, sintomas, relaciones) -> "BayesianNetwork":
 
 
 def construir_red_bayesiana():
-    """
-    Construye (o recupera de caché) la red bayesiana completa y muestra un
-    resumen de su estructura. Se conserva por compatibilidad con el uso
-    original de esta función.
-    """
     enfermedades, sintomas, relaciones = _obtener_datos()
     modelo = _obtener_modelo()
 
@@ -179,21 +144,12 @@ def construir_red_bayesiana():
 
 
 def calcular_diagnostico(sintomas_ingresados: list):
-    """
-    Recibe una lista de nombres de síntomas y retorna las enfermedades más
-    probables ordenadas por confianza, usando inferencia exacta (eliminación
-    de variables) sobre la red bayesiana construida con pgmpy.
-
-    sintomas_ingresados: lista de strings, ej: ["Tos", "Fiebre", "Dolor de garganta"]
-    """
     enfermedades, sintomas, relaciones = _obtener_datos()
     modelo = _obtener_modelo()
 
     sintoma_nombre_a_id = {s["nombre"]: s["id"] for s in sintomas}
     nombres_sintomas_red = set(modelo.nodes()) - {"Enfermedad"}
 
-    # Solo los síntomas reportados y presentes en la red se usan como
-    # evidencia observada ("Presente"); los demás quedan sin observar.
     evidencia = {
         nombre: "Presente"
         for nombre in sintomas_ingresados
@@ -221,9 +177,6 @@ def calcular_diagnostico(sintomas_ingresados: list):
         }
         sintomas_coincidentes = len(ids_evidencia & ids_sintomas_relacionados)
 
-        # Regla clínica: solo se sugieren enfermedades con al menos un
-        # síntoma relacionado entre los reportados (evita sugerir
-        # diagnósticos sin ninguna evidencia asociada).
         if sintomas_coincidentes > 0:
             resultados.append({
                 "enfermedad": enfermedad["nombre"],
@@ -231,7 +184,6 @@ def calcular_diagnostico(sintomas_ingresados: list):
                 "sintomas_coincidentes": sintomas_coincidentes,
             })
 
-    # Renormalizar la confianza solo entre las enfermedades sugeridas.
     total = sum(r["probabilidad"] for r in resultados)
     if total > 0:
         for r in resultados:
@@ -244,7 +196,6 @@ def calcular_diagnostico(sintomas_ingresados: list):
 
 
 if __name__ == "__main__":
-    # Prueba local del motor
     print("=== Probando conexión con Supabase y construcción de la red ===")
     construir_red_bayesiana()
 

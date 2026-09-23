@@ -9,16 +9,12 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ── CORS ──────────────────────────────────────────────────────────────────────
-// Solo el dominio del frontend puede llamar a esta API.
-// Configura ALLOWED_ORIGIN en el .env (puede ser una lista separada por comas).
 const allowedOrigins = (process.env.ALLOWED_ORIGIN || 'http://127.0.0.1:5500')
   .split(',')
   .map(o => o.trim());
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Permitir peticiones sin origin (Postman, curl, misma red interna)
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -31,22 +27,15 @@ app.use(cors({
 
 app.use(express.json());
 
-// ── Supabase ──────────────────────────────────────────────────────────────────
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 const supabaseAdmin = createClient(supabaseUrl, process.env.SUPABASE_SERVICE_KEY);
 
-// Columnas de "usuarios" seguras para devolver al frontend — deja fuera
-// auth_id (identificador interno de Supabase Auth, sin uso en la UI y sin
-// motivo para viajar en cada respuesta).
 const USUARIO_COLUMNAS_PUBLICAS = 'id, nombre, correo, rol, activo, creado_en';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// ── Middleware: autenticación ─────────────────────────────────────────────────
-// Verifica que el JWT de Supabase es válido antes de servir cualquier ruta
-// protegida. Adjunta el usuario en req.authUser.
 async function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
@@ -64,8 +53,6 @@ async function requireAuth(req, res, next) {
   next();
 }
 
-// ── Middleware: solo administradores ─────────────────────────────────────────
-// Debe usarse DESPUÉS de requireAuth.
 async function requireAdmin(req, res, next) {
   try {
     const { data, error } = await supabaseAdmin
@@ -87,10 +74,6 @@ async function requireAdmin(req, res, next) {
   }
 }
 
-// ── Middleware: médicos o administradores ────────────────────────────────────
-// Para vistas de solo lectura que los médicos también deben poder ver
-// (equipo médico, diagnósticos del día), pero enfermería no.
-// Debe usarse DESPUÉS de requireAuth.
 async function requireMedicoOAdmin(req, res, next) {
   try {
     const { data, error } = await supabaseAdmin
@@ -113,12 +96,10 @@ async function requireMedicoOAdmin(req, res, next) {
   }
 }
 
-// ── Ruta de salud ─────────────────────────────────────────────────────────────
 app.get('/', (req, res) => {
   res.json({ mensaje: 'API SaludXpert funcionando correctamente' });
 });
 
-// ── Síntomas ──────────────────────────────────────────────────────────────────
 app.get('/api/sintomas', requireAuth, async (req, res) => {
   try {
     const { data, error } = await supabase.from('sintomas').select('*');
@@ -130,7 +111,6 @@ app.get('/api/sintomas', requireAuth, async (req, res) => {
   }
 });
 
-// ── Enfermedades ──────────────────────────────────────────────────────────────
 app.get('/api/enfermedades', requireAuth, async (req, res) => {
   try {
     const { data, error } = await supabase.from('enfermedades').select('*');
@@ -142,7 +122,6 @@ app.get('/api/enfermedades', requireAuth, async (req, res) => {
   }
 });
 
-// ── Diagnóstico ───────────────────────────────────────────────────────────────
 app.post('/api/diagnosticar', requireAuth, async (req, res) => {
   try {
     const { sintomas } = req.body;
@@ -151,15 +130,12 @@ app.post('/api/diagnosticar', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Debe proporcionar al menos un síntoma.' });
     }
 
-    // Resolver el id interno del usuario autenticado — nunca confiar en un
-    // usuario_id que mande el cliente en el body.
     const { data: usuarioActual } = await supabaseAdmin
       .from('usuarios')
       .select('id')
       .eq('auth_id', req.authUser.id)
       .single();
 
-    // Llamar al motor de inferencia en Flask con el secret interno
     const MOTOR_URL = process.env.MOTOR_URL || 'http://localhost:5000';
     const response = await axios.post(
       `${MOTOR_URL}/api/diagnosticar`,
@@ -169,7 +145,6 @@ app.post('/api/diagnosticar', requireAuth, async (req, res) => {
 
     const resultado = response.data;
 
-    // Guardar la consulta en la base de datos
     const { data, error } = await supabaseAdmin.from('consultas').insert([
       {
         usuario_id: usuarioActual?.id || null,
@@ -193,12 +168,8 @@ app.post('/api/diagnosticar', requireAuth, async (req, res) => {
   }
 });
 
-// ── Historial de consultas ────────────────────────────────────────────────────
-// Por defecto retorna solo las consultas del turno de hoy (hora Guatemala,
-// UTC-6 todo el año, sin horario de verano) con un límite razonable, para
-// que la pantalla "Historial del Turno" no cargue el historial completo del
-// sistema. Con ?todas=true se puede pedir el historial completo (sigue
-// respetando el límite via ?limite=). Ej: /api/consultas?todas=true&limite=200
+// Historial de consultas. Por defecto retorna solo el turno de hoy;
+// ?todas=true trae el historial completo (respetando ?limite=).
 app.get('/api/consultas', requireAuth, async (req, res) => {
   try {
     const limite = Math.min(Math.max(parseInt(req.query.limite, 10) || 100, 1), 500);
@@ -211,10 +182,8 @@ app.get('/api/consultas', requireAuth, async (req, res) => {
       .limit(limite);
 
     if (!verTodas) {
-      // "Hoy" en hora de Guatemala (UTC-6 fijo), convertido a UTC para
-      // comparar contra la columna `fecha` (timestamptz en UTC).
-      const hoyGt = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Guatemala' }); // YYYY-MM-DD
-      const inicioDiaUTC = `${hoyGt}T06:00:00.000Z`; // 00:00 GT = 06:00 UTC
+      const hoyGt = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Guatemala' });
+      const inicioDiaUTC = `${hoyGt}T06:00:00.000Z`;
       query = query.gte('fecha', inicioDiaUTC);
     }
 
@@ -227,10 +196,6 @@ app.get('/api/consultas', requireAuth, async (req, res) => {
   }
 });
 
-// ── Actualizar decisión médica ────────────────────────────────────────────────
-// Solo médicos y administradores pueden confirmar/descartar un diagnóstico —
-// enfermería puede ver el historial (GET /api/consultas) pero no decidir
-// sobre él. Se registra quién tomó la decisión en actualizado_por.
 app.patch('/api/consultas/:id', requireAuth, requireMedicoOAdmin, async (req, res) => {
   try {
     const { id } = req.params;
@@ -266,8 +231,6 @@ app.patch('/api/consultas/:id', requireAuth, requireMedicoOAdmin, async (req, re
   }
 });
 
-// ── Perfil del usuario actual ─────────────────────────────────────────────────
-// Evita que el frontend descargue TODOS los usuarios solo para mostrar el nombre.
 app.get('/api/usuarios/me', requireAuth, async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
@@ -285,11 +248,8 @@ app.get('/api/usuarios/me', requireAuth, async (req, res) => {
   }
 });
 
-// ── Gestión de usuarios ────────────────────────────────────────────────────────
-// GET: visible para médicos y administradores. Un médico solo ve la lista
-// de médicos usando el sistema (sin correos de enfermería/administración);
-// el administrador ve a todos.
-// POST/PATCH (agregar, activar/desactivar): solo administrador.
+// Gestión de usuarios. GET visible para médicos y administradores (un
+// médico solo ve médicos); POST/PATCH solo administrador.
 app.get('/api/usuarios', requireAuth, requireMedicoOAdmin, async (req, res) => {
   try {
     let query = supabaseAdmin.from('usuarios').select(USUARIO_COLUMNAS_PUBLICAS).order('creado_en', { ascending: false });
@@ -320,7 +280,6 @@ app.post('/api/usuarios', requireAuth, requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'Correo inválido.' });
     }
 
-    // Invitar al usuario mediante Supabase Auth (le llega correo automático)
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
       correo,
       { data: { nombre, rol } }
@@ -328,7 +287,6 @@ app.post('/api/usuarios', requireAuth, requireAdmin, async (req, res) => {
 
     if (authError) throw authError;
 
-    // Guardar el registro en la tabla usuarios con su auth_id
     const { data, error } = await supabaseAdmin
       .from('usuarios')
       .insert([{ nombre, correo, rol, activo: true, auth_id: authData.user.id }])
@@ -365,7 +323,6 @@ app.patch('/api/usuarios/:id', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-// ── Iniciar servidor ──────────────────────────────────────────────────────────
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Servidor SaludXpert corriendo en puerto ${PORT}`);
 });
