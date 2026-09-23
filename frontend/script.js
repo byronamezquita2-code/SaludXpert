@@ -22,6 +22,16 @@ async function apiFetch(path, options = {}) {
 
   const response = await fetch(`${API_URL}${path}`, { ...options, headers });
 
+  if (response.status === 401) {
+    // Token ausente/inválido/expirado — la sesión de Supabase ya no sirve
+    // para nada útil en el backend. Cerrarla y mandar a login en vez de
+    // dejar que cada pantalla muestre su propio error genérico.
+    await supabaseClient.auth.signOut();
+    usuarioActual = null;
+    mostrarPantalla('pantalla-login');
+    throw new Error('Tu sesión expiró. Inicia sesión de nuevo.');
+  }
+
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     throw new Error(body.error || `Error ${response.status}`);

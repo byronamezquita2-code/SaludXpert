@@ -37,6 +37,13 @@ const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 const supabaseAdmin = createClient(supabaseUrl, process.env.SUPABASE_SERVICE_KEY);
 
+// Columnas de "usuarios" seguras para devolver al frontend — deja fuera
+// auth_id (identificador interno de Supabase Auth, sin uso en la UI y sin
+// motivo para viajar en cada respuesta).
+const USUARIO_COLUMNAS_PUBLICAS = 'id, nombre, correo, rol, activo, creado_en';
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 // ── Middleware: autenticación ─────────────────────────────────────────────────
 // Verifica que el JWT de Supabase es válido antes de servir cualquier ruta
 // protegida. Adjunta el usuario en req.authUser.
@@ -232,6 +239,11 @@ app.patch('/api/consultas/:id', requireAuth, requireMedicoOAdmin, async (req, re
     if (!['confirmado', 'descartado'].includes(decision_medico)) {
       return res.status(400).json({ error: 'decision_medico inválido — debe ser "confirmado" o "descartado".' });
     }
+    if (diagnostico_definitivo !== undefined && diagnostico_definitivo !== null) {
+      if (typeof diagnostico_definitivo !== 'string' || diagnostico_definitivo.length > 2000) {
+        return res.status(400).json({ error: 'diagnostico_definitivo inválido — máximo 2000 caracteres.' });
+      }
+    }
 
     const { data, error } = await supabaseAdmin
       .from('consultas')
@@ -280,7 +292,7 @@ app.get('/api/usuarios/me', requireAuth, async (req, res) => {
 // POST/PATCH (agregar, activar/desactivar): solo administrador.
 app.get('/api/usuarios', requireAuth, requireMedicoOAdmin, async (req, res) => {
   try {
-    let query = supabaseAdmin.from('usuarios').select('*').order('creado_en', { ascending: false });
+    let query = supabaseAdmin.from('usuarios').select(USUARIO_COLUMNAS_PUBLICAS).order('creado_en', { ascending: false });
     if (req.rolUsuario === 'medico') {
       query = query.eq('rol', 'medico');
     }
@@ -301,6 +313,12 @@ app.post('/api/usuarios', requireAuth, requireAdmin, async (req, res) => {
     if (!['medico', 'enfermeria', 'administrador'].includes(rol)) {
       return res.status(400).json({ error: 'Rol inválido.' });
     }
+    if (typeof nombre !== 'string' || nombre.trim().length === 0 || nombre.length > 200) {
+      return res.status(400).json({ error: 'Nombre inválido — debe tener entre 1 y 200 caracteres.' });
+    }
+    if (typeof correo !== 'string' || correo.length > 254 || !EMAIL_REGEX.test(correo)) {
+      return res.status(400).json({ error: 'Correo inválido.' });
+    }
 
     // Invitar al usuario mediante Supabase Auth (le llega correo automático)
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
@@ -314,7 +332,7 @@ app.post('/api/usuarios', requireAuth, requireAdmin, async (req, res) => {
     const { data, error } = await supabaseAdmin
       .from('usuarios')
       .insert([{ nombre, correo, rol, activo: true, auth_id: authData.user.id }])
-      .select();
+      .select(USUARIO_COLUMNAS_PUBLICAS);
 
     if (error) throw error;
     res.json(data[0]);
@@ -329,11 +347,15 @@ app.patch('/api/usuarios/:id', requireAuth, requireAdmin, async (req, res) => {
     const { id } = req.params;
     const { activo } = req.body;
 
+    if (typeof activo !== 'boolean') {
+      return res.status(400).json({ error: 'activo debe ser true o false.' });
+    }
+
     const { data, error } = await supabaseAdmin
       .from('usuarios')
       .update({ activo })
       .eq('id', id)
-      .select();
+      .select(USUARIO_COLUMNAS_PUBLICAS);
 
     if (error) throw error;
     res.json(data[0]);
