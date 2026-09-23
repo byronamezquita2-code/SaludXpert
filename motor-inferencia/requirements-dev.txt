@@ -1,0 +1,5 @@
+# Dependencias solo para desarrollo/tests — no se instalan en producción.
+-r requirements.txt
+pytest
+selenium
+webdriver-manager
