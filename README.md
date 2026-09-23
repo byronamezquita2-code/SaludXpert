@@ -41,6 +41,13 @@ frontend  →  api-backend (valida JWT de Supabase Auth + rol)
   arranca y falla (`raise RuntimeError`) si no tiene `INTERNAL_SECRET`
   configurado, y solo responde a peticiones que traigan ese secreto en el
   header `X-Internal-Secret` (lo agrega `api-backend` en cada llamada).
+- **Monitoreo**: ambos servicios inicializan Sentry (`SENTRY_DSN`) — si no
+  está configurado, el SDK queda inactivo sin afectar nada. En
+  `api-backend`, cada `catch` que hoy hace `console.error` también manda el
+  error a Sentry con `Sentry.captureException`.
+- **Rate limiting**: `api-backend` limita las rutas `/api/*` a 300 requests
+  por IP cada 15 minutos (`RATE_LIMIT_MAX`), usando `req.ip` detrás del
+  proxy de Render (`app.set('trust proxy', 1)`).
 
 ## Requisitos
 
@@ -99,6 +106,9 @@ defecto que acepta `api-backend`). Actualiza `API_URL` en
 | `api-backend` | `INTERNAL_SECRET` | Secreto compartido con `motor-inferencia` |
 | `api-backend` | `ALLOWED_ORIGIN` | Orígenes permitidos por CORS, separados por coma |
 | `api-backend` | `PORT` | Puerto (default 3000) |
+| `api-backend` | `SENTRY_DSN` | Opcional — reporte de errores en producción. Sin esto el servidor funciona igual, solo que los errores no se reportan a ningún lado |
+| `api-backend` | `RATE_LIMIT_MAX` | Opcional — requests por IP cada 15 min en rutas `/api` (default 300) |
+| `motor-inferencia` | `SENTRY_DSN` | Opcional — mismo comportamiento que en `api-backend` |
 | `pruebas-validacion` | `TEST_API_URL` | API contra la que corren los escenarios BDD |
 | `pruebas-validacion` | `TEST_EMAIL`, `TEST_PASSWORD` | Credenciales de un usuario de prueba real en Supabase Auth |
 | `pruebas-validacion` | `SUPABASE_URL`, `SUPABASE_KEY` | Para autenticar al usuario de prueba |
@@ -107,7 +117,7 @@ defecto que acepta `api-backend`). Actualiza `API_URL` en
 
 | Servicio | Comando | Qué cubre | ¿Necesita credenciales reales? |
 |---|---|---|---|
-| `api-backend` | `cd api-backend && npm test` | Autenticación/autorización de rutas (401 sin token) y validación de datos de paciente | No — usa valores dummy |
+| `api-backend` | `cd api-backend && npm test` | Autenticación (401 sin token), autorización por rol (`requireAdmin`/`requireMedicoOAdmin`), validación de datos de paciente, y las rutas de pacientes/consultas/diagnóstico usando un doble de prueba de Supabase (`test/helpers/supabaseStub.js`) | No — usa valores dummy |
 | `motor-inferencia` | `cd motor-inferencia && source venv/bin/activate && pytest test_motor.py` | Lógica de la red bayesiana (`calcular_diagnostico`) | **Sí** — consulta enfermedades/síntomas reales vía Supabase, no está mockeado |
 | `motor-inferencia` | `pytest test_sistema_selenium.py` | UI end-to-end con Chrome real (login, síntomas, diagnóstico) | **Sí** — requiere `frontend` servido en `127.0.0.1:5500`, `api-backend` y `motor-inferencia` corriendo, y Chrome instalado |
 | `pruebas-validacion` | `cd pruebas-validacion && npx cucumber-js` | Flujo end-to-end contra una API desplegada | **Sí** — API en vivo + usuario de prueba en Supabase Auth |
