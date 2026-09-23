@@ -376,6 +376,22 @@ async function manejarEnlaceEspecial() {
   return true;
 }
 
+function evaluarContrasena(clave) {
+  return {
+    largo: clave.length >= 8,
+    minuscula: /[a-z]/.test(clave),
+    mayuscula: /[A-Z]/.test(clave),
+    numero: /\d/.test(clave),
+  };
+}
+
+document.getElementById('nueva-contrasena').addEventListener('input', (e) => {
+  const cumple = evaluarContrasena(e.target.value);
+  document.querySelectorAll('#requisitos-contrasena li').forEach(li => {
+    li.classList.toggle('cumplido', cumple[li.dataset.req]);
+  });
+});
+
 document.getElementById('form-nueva-contrasena').addEventListener('submit', async (e) => {
   e.preventDefault();
 
@@ -388,8 +404,8 @@ document.getElementById('form-nueva-contrasena').addEventListener('submit', asyn
     mensajeError.textContent = 'Las contraseñas no coinciden.';
     return;
   }
-  if (nueva.length < 8) {
-    mensajeError.textContent = 'La contraseña debe tener al menos 8 caracteres.';
+  if (!Object.values(evaluarContrasena(nueva)).every(Boolean)) {
+    mensajeError.textContent = 'La contraseña no cumple todos los requisitos de la lista.';
     return;
   }
 
