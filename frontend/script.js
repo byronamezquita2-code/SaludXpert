@@ -278,8 +278,7 @@ function irAPantallaPaciente() {
   if (buscarInput) buscarInput.value = '';
   const resultados = document.getElementById('resultados-paciente');
   if (resultados) resultados.innerHTML = '';
-  const form = document.getElementById('form-nuevo-paciente');
-  if (form) form.reset();
+  if (document.getElementById('form-nuevo-paciente')) salirModoEdicionPaciente();
   mostrarPantalla('pantalla-paciente');
 }
 
@@ -399,6 +398,36 @@ document.getElementById('link-recuperar').addEventListener('click', async () => 
   }
 });
 
+function entrarModoEdicionPaciente(p) {
+  const form = document.getElementById('form-nuevo-paciente');
+  form.dataset.editandoId = p.id;
+
+  document.getElementById('paciente-nombre').value = p.nombre || '';
+  document.getElementById('paciente-documento').value = p.documento || '';
+  document.getElementById('paciente-nacimiento').value = p.fecha_nacimiento || '';
+  document.getElementById('paciente-alergias').value = p.alergias || '';
+  document.getElementById('paciente-condiciones').value = p.condiciones_cronicas || '';
+  document.getElementById('paciente-medicamentos').value = p.medicamentos_actuales || '';
+
+  document.getElementById('texto-form-paciente').textContent = `Editando a ${p.nombre}`;
+  document.getElementById('btn-guardar-paciente').textContent = 'Guardar cambios y continuar';
+  document.getElementById('btn-cancelar-edicion-paciente').style.display = '';
+
+  form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function salirModoEdicionPaciente() {
+  const form = document.getElementById('form-nuevo-paciente');
+  form.dataset.editandoId = '';
+  form.reset();
+
+  document.getElementById('texto-form-paciente').textContent = 'o registre uno nuevo';
+  document.getElementById('btn-guardar-paciente').textContent = 'Registrar y continuar';
+  document.getElementById('btn-cancelar-edicion-paciente').style.display = 'none';
+}
+
+document.getElementById('btn-cancelar-edicion-paciente').addEventListener('click', salirModoEdicionPaciente);
+
 document.getElementById('buscar-paciente').addEventListener('input', (e) => {
   const termino = e.target.value.trim();
   clearTimeout(busquedaPacienteTimeout);
@@ -423,10 +452,19 @@ document.getElementById('buscar-paciente').addEventListener('input', (e) => {
         const div = document.createElement('div');
         div.className = 'resultado-paciente historial-card';
         div.innerHTML = `
-          <span class="paciente-nombre">${escaparHtml(p.nombre)}</span>
-          ${p.documento ? `<div class="paciente-doc">CUI/DPI: ${escaparHtml(p.documento)}</div>` : ''}
+          <div class="flex items-center justify-between gap-sm">
+            <div>
+              <span class="paciente-nombre">${escaparHtml(p.nombre)}</span>
+              ${p.documento ? `<div class="paciente-doc">CUI/DPI: ${escaparHtml(p.documento)}</div>` : ''}
+            </div>
+            <button type="button" class="link-secundario btn-editar-paciente">Editar</button>
+          </div>
         `;
         div.addEventListener('click', () => seleccionarPaciente(p));
+        div.querySelector('.btn-editar-paciente').addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          entrarModoEdicionPaciente(p);
+        });
         contenedor.appendChild(div);
       });
     } catch (error) {
@@ -451,14 +489,18 @@ document.getElementById('form-nuevo-paciente').addEventListener('submit', async 
     medicamentos_actuales: document.getElementById('paciente-medicamentos').value.trim() || null,
   };
 
+  const form = e.target;
+  const editandoId = form.dataset.editandoId;
+
   try {
-    const paciente = await apiFetch('/api/pacientes', {
-      method: 'POST',
-      body: JSON.stringify(cuerpo),
-    });
+    const paciente = editandoId
+      ? await apiFetch(`/api/pacientes/${editandoId}`, { method: 'PATCH', body: JSON.stringify(cuerpo) })
+      : await apiFetch('/api/pacientes', { method: 'POST', body: JSON.stringify(cuerpo) });
+
+    salirModoEdicionPaciente();
     await seleccionarPaciente(paciente);
   } catch (error) {
-    await mostrarAlerta('Error', error.message || 'No se pudo registrar el paciente.');
+    await mostrarAlerta('Error', error.message || 'No se pudo guardar el paciente.');
   }
 });
 

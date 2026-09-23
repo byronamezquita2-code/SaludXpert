@@ -132,11 +132,11 @@ tailwind.config={theme:{extend:{"colors":{"on-primary":"#ffffff","on-secondary-c
 
           <div class="flex items-center gap-md">
             <div class="flex-1 h-px bg-outline-variant"></div>
-            <span class="text-label-md text-on-surface-variant">o registre uno nuevo</span>
+            <span class="text-label-md text-on-surface-variant" id="texto-form-paciente">o registre uno nuevo</span>
             <div class="flex-1 h-px bg-outline-variant"></div>
           </div>
 
-          <form id="form-nuevo-paciente" class="bg-surface-container-lowest rounded-xl shadow-sm p-lg flex flex-col gap-md">
+          <form id="form-nuevo-paciente" class="bg-surface-container-lowest rounded-xl shadow-sm p-lg flex flex-col gap-md" data-editando-id="">
             <div class="flex flex-col gap-2">
               <label class="text-label-md text-on-surface" for="paciente-nombre">Nombre completo *</label>
               <input id="paciente-nombre" type="text" required class="w-full px-4 py-3 bg-surface rounded-lg border border-outline-variant focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-body-lg text-on-surface transition-all">
@@ -163,7 +163,10 @@ tailwind.config={theme:{extend:{"colors":{"on-primary":"#ffffff","on-secondary-c
               <label class="text-label-md text-on-surface" for="paciente-medicamentos">Medicamentos actuales</label>
               <input id="paciente-medicamentos" type="text" class="w-full px-4 py-3 bg-surface rounded-lg border border-outline-variant focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-body-lg text-on-surface transition-all">
             </div>
-            <button type="submit" class="h-12 px-lg mt-sm bg-primary text-on-primary rounded font-label-md text-label-md self-start shadow-sm hover:shadow-md transition-shadow">Registrar y continuar</button>
+            <div class="flex items-center gap-md mt-sm">
+              <button type="submit" id="btn-guardar-paciente" class="h-12 px-lg bg-primary text-on-primary rounded font-label-md text-label-md shadow-sm hover:shadow-md transition-shadow">Registrar y continuar</button>
+              <button type="button" id="btn-cancelar-edicion-paciente" class="link-secundario" style="display:none;">Cancelar edición</button>
+            </div>
           </form>
         </div>
       </main>

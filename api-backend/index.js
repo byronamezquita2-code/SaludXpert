@@ -269,20 +269,28 @@ app.get('/api/pacientes', requireAuth, async (req, res) => {
   }
 });
 
+function validarDatosPaciente({ nombre, documento, alergias, condiciones_cronicas, medicamentos_actuales }) {
+  if (typeof nombre !== 'string' || nombre.trim().length === 0 || nombre.length > 200) {
+    return 'Nombre inválido — debe tener entre 1 y 200 caracteres.';
+  }
+  if (documento !== undefined && documento !== null && (typeof documento !== 'string' || documento.length > 50)) {
+    return 'Documento inválido — máximo 50 caracteres.';
+  }
+  for (const [campo, valor] of [['alergias', alergias], ['condiciones_cronicas', condiciones_cronicas], ['medicamentos_actuales', medicamentos_actuales]]) {
+    if (valor !== undefined && valor !== null && (typeof valor !== 'string' || valor.length > 1000)) {
+      return `${campo} inválido — máximo 1000 caracteres.`;
+    }
+  }
+  return null;
+}
+
 app.post('/api/pacientes', requireAuth, async (req, res) => {
   try {
     const { nombre, documento, fecha_nacimiento, alergias, condiciones_cronicas, medicamentos_actuales } = req.body;
 
-    if (typeof nombre !== 'string' || nombre.trim().length === 0 || nombre.length > 200) {
-      return res.status(400).json({ error: 'Nombre inválido — debe tener entre 1 y 200 caracteres.' });
-    }
-    if (documento !== undefined && documento !== null && (typeof documento !== 'string' || documento.length > 50)) {
-      return res.status(400).json({ error: 'Documento inválido — máximo 50 caracteres.' });
-    }
-    for (const [campo, valor] of [['alergias', alergias], ['condiciones_cronicas', condiciones_cronicas], ['medicamentos_actuales', medicamentos_actuales]]) {
-      if (valor !== undefined && valor !== null && (typeof valor !== 'string' || valor.length > 1000)) {
-        return res.status(400).json({ error: `${campo} inválido — máximo 1000 caracteres.` });
-      }
+    const errorValidacion = validarDatosPaciente(req.body);
+    if (errorValidacion) {
+      return res.status(400).json({ error: errorValidacion });
     }
 
     const { data, error } = await supabaseAdmin
@@ -302,6 +310,40 @@ app.post('/api/pacientes', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Error POST /api/pacientes:', error.message);
     res.status(500).json({ error: 'Error al registrar paciente.' });
+  }
+});
+
+app.patch('/api/pacientes/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nombre, documento, fecha_nacimiento, alergias, condiciones_cronicas, medicamentos_actuales } = req.body;
+
+    const errorValidacion = validarDatosPaciente(req.body);
+    if (errorValidacion) {
+      return res.status(400).json({ error: errorValidacion });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('pacientes')
+      .update({
+        nombre: nombre.trim(),
+        documento: documento || null,
+        fecha_nacimiento: fecha_nacimiento || null,
+        alergias: alergias || null,
+        condiciones_cronicas: condiciones_cronicas || null,
+        medicamentos_actuales: medicamentos_actuales || null,
+      })
+      .eq('id', id)
+      .select(PACIENTE_COLUMNAS);
+
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      return res.status(404).json({ error: 'Paciente no encontrado.' });
+    }
+    res.json(data[0]);
+  } catch (error) {
+    console.error('Error PATCH /api/pacientes:', error.message);
+    res.status(500).json({ error: 'Error al actualizar paciente.' });
   }
 });
 
