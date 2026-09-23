@@ -45,9 +45,15 @@ frontend  →  api-backend (valida JWT de Supabase Auth + rol)
   está configurado, el SDK queda inactivo sin afectar nada. En
   `api-backend`, cada `catch` que hoy hace `console.error` también manda el
   error a Sentry con `Sentry.captureException`.
-- **Rate limiting**: `api-backend` limita las rutas `/api/*` a 300 requests
+- **Rate limiting**: `api-backend` limita las rutas `/api/*` a 1000 requests
   por IP cada 15 minutos (`RATE_LIMIT_MAX`), usando `req.ip` detrás del
-  proxy de Render (`app.set('trust proxy', 1)`).
+  proxy de Render (`app.set('trust proxy', 1)`). El límite es alto a propósito:
+  todo el personal del centro de salud sale por la misma IP pública.
+- **Cuentas**: un JWT válido no basta. `requireAuth` exige además una fila
+  con `activo = true` en `usuarios`; desactivar a alguien corta su acceso a la
+  API de inmediato. En Supabase debe estar desactivado el auto-registro
+  (Authentication → Sign In / Providers → *Allow new users to sign up*), las
+  cuentas se crean solo por invitación desde el panel de administración.
 
 ## Requisitos
 
@@ -107,7 +113,7 @@ defecto que acepta `api-backend`). Actualiza `API_URL` en
 | `api-backend` | `ALLOWED_ORIGIN` | Orígenes permitidos por CORS, separados por coma |
 | `api-backend` | `PORT` | Puerto (default 3000) |
 | `api-backend` | `SENTRY_DSN` | Opcional — reporte de errores en producción. Sin esto el servidor funciona igual, solo que los errores no se reportan a ningún lado |
-| `api-backend` | `RATE_LIMIT_MAX` | Opcional — requests por IP cada 15 min en rutas `/api` (default 300) |
+| `api-backend` | `RATE_LIMIT_MAX` | Opcional — requests por IP cada 15 min en rutas `/api` (default 1000) |
 | `motor-inferencia` | `SENTRY_DSN` | Opcional — mismo comportamiento que en `api-backend` |
 | `pruebas-validacion` | `TEST_API_URL` | API contra la que corren los escenarios BDD |
 | `pruebas-validacion` | `TEST_EMAIL`, `TEST_PASSWORD` | Credenciales de un usuario de prueba real en Supabase Auth |
@@ -119,7 +125,7 @@ defecto que acepta `api-backend`). Actualiza `API_URL` en
 |---|---|---|---|
 | `api-backend` | `cd api-backend && npm test` | Autenticación (401 sin token), autorización por rol (`requireAdmin`/`requireMedicoOAdmin`), validación de datos de paciente, y las rutas de pacientes/consultas/diagnóstico usando un doble de prueba de Supabase (`test/helpers/supabaseStub.js`) | No — usa valores dummy |
 | `motor-inferencia` | `cd motor-inferencia && source venv/bin/activate && pytest test_motor.py` | Lógica de la red bayesiana (`calcular_diagnostico`) | **Sí** — consulta enfermedades/síntomas reales vía Supabase, no está mockeado |
-| `motor-inferencia` | `pytest test_sistema_selenium.py` | UI end-to-end con Chrome real (login, síntomas, diagnóstico) | **Sí** — requiere `frontend` servido en `127.0.0.1:5500`, `api-backend` y `motor-inferencia` corriendo, y Chrome instalado |
+| `motor-inferencia` | `pytest test_sistema_selenium.py` | UI end-to-end con Chrome real (login, paciente, síntomas, diagnóstico) | **Sí** — requiere `frontend` servido en `127.0.0.1:5500`, `api-backend` y `motor-inferencia` corriendo, y Chrome instalado |
 | `pruebas-validacion` | `cd pruebas-validacion && npx cucumber-js` | Flujo end-to-end contra una API desplegada | **Sí** — API en vivo + usuario de prueba en Supabase Auth |
 
 `npm test` en `api-backend` es el único que corre en CI (ver
@@ -132,8 +138,9 @@ proyecto de Supabase real (idealmente uno de prueba, no producción).
 
 ## Despliegue
 
-- `frontend`: estático (Netlify — ver `ALLOWED_ORIGIN` de ejemplo en
-  `api-backend/.env`).
+- `frontend`: estático en Vercel (`https://salud-xpert.vercel.app`); ese
+  origen debe estar en `ALLOWED_ORIGIN` de `api-backend`. Los headers de
+  seguridad están en [`frontend/vercel.json`](frontend/vercel.json).
 - `api-backend` y `motor-inferencia`: Render (`motor-inferencia/runtime.txt`
   fija la versión de Python; `gunicorn` está en sus dependencias para
   producción).
@@ -144,3 +151,15 @@ No hay migrador automático. Los cambios de esquema se aplican a mano en el
 SQL Editor de Supabase y quedan documentados como archivos numerados en
 [`supabase/migrations/`](supabase/migrations/) — ese directorio explica el
 orden, qué hace cada uno y cómo verificar qué está aplicado.
+
+## Respaldos
+
+Supabase Free no incluye respaldos automáticos. Para exportar todas las
+tablas a JSON (requiere `SUPABASE_SERVICE_KEY` en `api-backend/.env`):
+
+```bash
+cd api-backend && npm run respaldo
+```
+
+Se guarda en `respaldos/<fecha>/` (ignorado por git). Contiene datos
+clínicos: guárdalo cifrado y fuera del repositorio.

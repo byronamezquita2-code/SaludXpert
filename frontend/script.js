@@ -10,6 +10,13 @@ let usuarioActual = null;
 let pacienteActual = null;
 let busquedaPacienteTimeout = null;
 
+async function cerrarSesionForzada(mensaje) {
+  await supabaseClient.auth.signOut();
+  usuarioActual = null;
+  mostrarPantalla('pantalla-login');
+  document.getElementById('mensaje-error').textContent = mensaje;
+}
+
 async function apiFetch(path, options = {}) {
   const { data: sessionData } = await supabaseClient.auth.getSession();
   const token = sessionData?.session?.access_token;
@@ -28,10 +35,16 @@ async function apiFetch(path, options = {}) {
   }
 
   if (response.status === 401) {
-    await supabaseClient.auth.signOut();
-    usuarioActual = null;
-    mostrarPantalla('pantalla-login');
+    await cerrarSesionForzada('Tu sesión expiró. Inicia sesión de nuevo.');
     throw new Error('Tu sesión expiró. Inicia sesión de nuevo.');
+  }
+
+  if (response.status === 403) {
+    const body = await response.clone().json().catch(() => ({}));
+    if (body.codigo === 'cuenta_inactiva' || body.codigo === 'sin_registro') {
+      await cerrarSesionForzada(body.error);
+      throw new Error(body.error);
+    }
   }
 
   if (!response.ok) {
@@ -258,12 +271,14 @@ function actualizarTopbarUsuario() {
 }
 
 async function cargarUsuarioActual() {
+  usuarioActual = null;
   try {
     const data = await apiFetch('/api/usuarios/me');
     usuarioActual = { correo: data.correo, nombre: data.nombre, rol: data.rol };
   } catch {
   }
   actualizarTopbarUsuario();
+  return usuarioActual !== null;
 }
 
 function renderBannerPaciente(elementId) {
@@ -308,8 +323,12 @@ async function seleccionarPaciente(paciente) {
 async function restaurarSesion() {
   const { data: sessionData } = await supabaseClient.auth.getSession();
   if (sessionData?.session) {
-    await cargarUsuarioActual();
-    inyectarShell(usuarioActual?.rol);
+    if (!(await cargarUsuarioActual())) {
+      const mensaje = document.getElementById('mensaje-error');
+      if (!mensaje.textContent) mensaje.textContent = 'No se pudo cargar tu perfil. Revisa tu conexión e inicia sesión de nuevo.';
+      return;
+    }
+    inyectarShell(usuarioActual.rol);
     irAPantallaPaciente();
   }
 }
@@ -356,8 +375,8 @@ document.getElementById('form-nueva-contrasena').addEventListener('submit', asyn
     mensajeError.textContent = 'Las contraseñas no coinciden.';
     return;
   }
-  if (nueva.length < 6) {
-    mensajeError.textContent = 'La contraseña debe tener al menos 6 caracteres.';
+  if (nueva.length < 8) {
+    mensajeError.textContent = 'La contraseña debe tener al menos 8 caracteres.';
     return;
   }
 
@@ -367,8 +386,11 @@ document.getElementById('form-nueva-contrasena').addEventListener('submit', asyn
     return;
   }
 
-  await cargarUsuarioActual();
-  inyectarShell(usuarioActual?.rol);
+  if (!(await cargarUsuarioActual())) {
+    await mostrarAlerta('Cuenta no disponible', document.getElementById('mensaje-error').textContent || 'No se pudo cargar tu perfil.');
+    return;
+  }
+  inyectarShell(usuarioActual.rol);
   irAPantallaPaciente();
 });
 
@@ -400,8 +422,11 @@ document.getElementById('form-login').addEventListener('submit', async (e) => {
     return;
   }
 
-  await cargarUsuarioActual();
-  inyectarShell(usuarioActual?.rol);
+  if (!(await cargarUsuarioActual())) {
+    if (!mensajeError.textContent) mensajeError.textContent = 'No se pudo cargar tu perfil. Revisa tu conexión e intenta de nuevo.';
+    return;
+  }
+  inyectarShell(usuarioActual.rol);
   irAPantallaPaciente();
 });
 

@@ -11,11 +11,12 @@ const { createApp } = require('../app');
 const { createSupabaseStub } = require('./helpers/supabaseStub');
 
 const AUTH_USER = { id: 'auth-1' };
+const UUID = '11111111-1111-4111-8111-111111111111';
 
 function appConAdmin({ rol, tables = {} } = {}) {
   const supabaseAdmin = createSupabaseStub({
     user: AUTH_USER,
-    tables: { usuarios: { data: { id: 'u1', rol }, error: null }, ...tables },
+    tables: { usuarios: { data: { id: 'u1', rol, activo: true }, error: null }, ...tables },
   });
   return createApp({ supabaseAdmin }).app;
 }
@@ -35,7 +36,7 @@ test('requireAdmin deja pasar a un administrador', async () => {
     rol: 'administrador',
     tables: {
       usuarios: [
-        { data: { id: 'u1', rol: 'administrador' }, error: null }, // requireAdmin
+        { data: { id: 'u1', rol: 'administrador', activo: true }, error: null }, // requireAuth
         { data: [{ id: 'u2', nombre: 'Nueva', correo: 'nueva@salud.gob.gt', rol: 'medico', activo: true }], error: null }, // insert final
       ],
     },
@@ -67,7 +68,7 @@ test('un médico solo ve usuarios con rol médico (filtrado en el backend)', asy
     rol: 'medico',
     tables: {
       usuarios: [
-        { data: { id: 'u1', rol: 'medico' }, error: null }, // requireMedicoOAdmin
+        { data: { id: 'u1', rol: 'medico', activo: true }, error: null }, // requireAuth
         { data: [{ id: 'u1', nombre: 'Dr. X', rol: 'medico' }], error: null }, // listado
       ],
     },
@@ -84,7 +85,7 @@ test('un médico solo ve usuarios con rol médico (filtrado en el backend)', asy
 test('PATCH /api/consultas/:id exige médico o administrador (403 para enfermería)', async () => {
   const app = appConAdmin({ rol: 'enfermeria' });
   const res = await request(app)
-    .patch('/api/consultas/c1')
+    .patch(`/api/consultas/${UUID}`)
     .set('Authorization', 'Bearer token-valido')
     .send({ decision_medico: 'confirmado' });
 
@@ -95,12 +96,12 @@ test('PATCH /api/consultas/:id rechaza un decision_medico inválido', async () =
   const app = appConAdmin({
     rol: 'medico',
     tables: {
-      usuarios: { data: { id: 'u1', rol: 'medico' }, error: null },
+      usuarios: { data: { id: 'u1', rol: 'medico', activo: true }, error: null },
     },
   });
 
   const res = await request(app)
-    .patch('/api/consultas/c1')
+    .patch(`/api/consultas/${UUID}`)
     .set('Authorization', 'Bearer token-valido')
     .send({ decision_medico: 'algo-invalido' });
 
@@ -120,7 +121,7 @@ test('POST /api/usuarios rechaza un rol inválido incluso siendo administrador',
 test('PATCH /api/usuarios/:id exige que "activo" sea booleano', async () => {
   const app = appConAdmin({ rol: 'administrador' });
   const res = await request(app)
-    .patch('/api/usuarios/u2')
+    .patch(`/api/usuarios/${UUID}`)
     .set('Authorization', 'Bearer token-valido')
     .send({ activo: 'si' });
 

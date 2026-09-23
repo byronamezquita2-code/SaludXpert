@@ -12,6 +12,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 load_dotenv()
 
 FRONTEND_URL = "http://127.0.0.1:5500/frontend/index.html"
+NOMBRE_PACIENTE_PRUEBA = "Paciente Prueba Selenium"
 
 TEST_EMAIL = os.environ.get("TEST_EMAIL")
 TEST_PASSWORD = os.environ.get("TEST_PASSWORD")
@@ -36,8 +37,21 @@ def _login(driver, wait):
     driver.find_element(By.ID, "correo").send_keys(TEST_EMAIL)
     driver.find_element(By.ID, "contrasena").send_keys(TEST_PASSWORD)
     driver.find_element(By.CSS_SELECTOR, "#form-login button").click()
+    wait.until(EC.visibility_of_element_located((By.ID, "pantalla-paciente")))
+    _seleccionar_paciente(driver, wait)
     wait.until(EC.visibility_of_element_located((By.ID, "pantalla-sintomas")))
     time.sleep(1)
+
+
+def _seleccionar_paciente(driver, wait):
+    driver.find_element(By.ID, "buscar-paciente").send_keys(NOMBRE_PACIENTE_PRUEBA)
+    time.sleep(1.5)
+    resultados = driver.find_elements(By.CSS_SELECTOR, "#resultados-paciente .resultado-paciente")
+    if resultados:
+        resultados[0].click()
+        return
+    driver.find_element(By.ID, "paciente-nombre").send_keys(NOMBRE_PACIENTE_PRUEBA)
+    driver.find_element(By.ID, "btn-guardar-paciente").click()
 
 
 def _cerrar_dialog(driver, wait):

@@ -41,12 +41,13 @@ function builderFor(queues, table) {
     insert: () => builder,
     update: () => builder,
     single: () => Promise.resolve(result),
+    maybeSingle: () => Promise.resolve(result),
     then: (resolve, reject) => Promise.resolve(result).then(resolve, reject),
   };
   return builder;
 }
 
-function createSupabaseStub({ user = null, tables = {}, inviteUser } = {}) {
+function createSupabaseStub({ user = null, tables = {}, inviteUser, deleteUser } = {}) {
   const queues = { ...tables };
 
   return {
@@ -57,6 +58,7 @@ function createSupabaseStub({ user = null, tables = {}, inviteUser } = {}) {
       admin: {
         inviteUserByEmail:
           inviteUser || (async () => ({ data: { user: { id: 'auth-nuevo' } }, error: null })),
+        deleteUser: deleteUser || (async () => ({ data: null, error: null })),
       },
     },
   };

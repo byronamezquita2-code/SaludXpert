@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "respaldo": "node scripts/respaldo.js"
   },
   "keywords": [],
   "author": "",

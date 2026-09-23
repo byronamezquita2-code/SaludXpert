@@ -14,6 +14,17 @@ Sentry.init({
   dsn: process.env.SENTRY_DSN,
   environment: process.env.NODE_ENV || 'development',
   tracesSampleRate: 0,
+  beforeSend(evento) {
+    if (evento.request) {
+      delete evento.request.data;
+      delete evento.request.cookies;
+      if (evento.request.headers) {
+        delete evento.request.headers.authorization;
+        delete evento.request.headers.cookie;
+      }
+    }
+    return evento;
+  },
 });
 
 const USUARIO_COLUMNAS_PUBLICAS = 'id, nombre, correo, rol, activo, creado_en';
@@ -21,12 +32,50 @@ const PACIENTE_COLUMNAS = 'id, nombre, documento, fecha_nacimiento, alergias, co
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function validarDatosPaciente({ nombre, documento, alergias, condiciones_cronicas, medicamentos_actuales }) {
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function esUuid(valor) {
+  return typeof valor === 'string' && UUID_REGEX.test(valor);
+}
+
+function validarSintomas(sintomas) {
+  if (!Array.isArray(sintomas) || sintomas.length === 0) {
+    return 'Debe proporcionar al menos un síntoma.';
+  }
+  if (sintomas.length > 50 || sintomas.some(s => typeof s !== 'string' || s.length === 0 || s.length > 100)) {
+    return 'Lista de síntomas inválida.';
+  }
+  return null;
+}
+
+function fechaNacimientoValida(valor) {
+  if (valor === undefined || valor === null || valor === '') return true;
+  if (typeof valor !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(valor)) return false;
+  const fecha = new Date(`${valor}T00:00:00Z`);
+  if (Number.isNaN(fecha.getTime()) || fecha.toISOString().slice(0, 10) !== valor) return false;
+  return fecha <= new Date() && fecha.getUTCFullYear() >= 1900;
+}
+
+function datosPaciente(body) {
+  return {
+    nombre: body.nombre.trim(),
+    documento: body.documento?.trim() || null,
+    fecha_nacimiento: body.fecha_nacimiento || null,
+    alergias: body.alergias?.trim() || null,
+    condiciones_cronicas: body.condiciones_cronicas?.trim() || null,
+    medicamentos_actuales: body.medicamentos_actuales?.trim() || null,
+  };
+}
+
+function validarDatosPaciente({ nombre, documento, fecha_nacimiento, alergias, condiciones_cronicas, medicamentos_actuales }) {
   if (typeof nombre !== 'string' || nombre.trim().length === 0 || nombre.length > 200) {
     return 'Nombre inválido — debe tener entre 1 y 200 caracteres.';
   }
   if (documento !== undefined && documento !== null && (typeof documento !== 'string' || documento.length > 50)) {
     return 'Documento inválido — máximo 50 caracteres.';
+  }
+  if (!fechaNacimientoValida(fecha_nacimiento)) {
+    return 'Fecha de nacimiento inválida.';
   }
   for (const [campo, valor] of [['alergias', alergias], ['condiciones_cronicas', condiciones_cronicas], ['medicamentos_actuales', medicamentos_actuales]]) {
     if (valor !== undefined && valor !== null && (typeof valor !== 'string' || valor.length > 1000)) {
@@ -50,6 +99,12 @@ function createApp({ supabase, supabaseAdmin } = {}) {
   // esto, express-rate-limit y req.ip verían siempre la IP interna del
   // proxy en vez de la del cliente real.
   app.set('trust proxy', 1);
+  app.disable('x-powered-by');
+  app.use((req, res, next) => {
+    res.set('X-Content-Type-Options', 'nosniff');
+    if (req.path.startsWith('/api')) res.set('Cache-Control', 'no-store');
+    next();
+  });
 
   const allowedOrigins = (process.env.ALLOWED_ORIGIN || 'http://127.0.0.1:5500')
     .split(',')
@@ -71,73 +126,68 @@ function createApp({ supabase, supabaseAdmin } = {}) {
 
   const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: parseInt(process.env.RATE_LIMIT_MAX, 10) || 300,
+    max: parseInt(process.env.RATE_LIMIT_MAX, 10) || 1000,
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Demasiadas solicitudes — intenta de nuevo en unos minutos.' },
   });
   app.use('/api', limiter);
 
+  // Un JWT válido de Supabase Auth no basta: el auto-registro público de
+  // Supabase permite crear cuentas, así que además debe existir una fila
+  // activa en "usuarios" (la que crea un administrador al invitar).
   async function requireAuth(req, res, next) {
-    const authHeader = req.headers.authorization || '';
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    try {
+      const authHeader = req.headers.authorization || '';
+      const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
-    if (!token) {
-      return res.status(401).json({ error: 'No autenticado — falta el token.' });
+      if (!token) {
+        return res.status(401).json({ error: 'No autenticado — falta el token.' });
+      }
+
+      const { data, error } = await clienteSupabaseAdmin.auth.getUser(token);
+      if (error || !data?.user) {
+        return res.status(401).json({ error: 'Token inválido o expirado.' });
+      }
+
+      const { data: usuario, error: errorUsuario } = await clienteSupabaseAdmin
+        .from('usuarios')
+        .select('id, nombre, correo, rol, activo')
+        .eq('auth_id', data.user.id)
+        .maybeSingle();
+
+      if (errorUsuario) throw errorUsuario;
+      if (!usuario) {
+        return res.status(403).json({ error: 'Tu cuenta no está registrada en el sistema. Contacta al administrador.', codigo: 'sin_registro' });
+      }
+      if (usuario.activo !== true) {
+        return res.status(403).json({ error: 'Tu cuenta está desactivada. Contacta al administrador.', codigo: 'cuenta_inactiva' });
+      }
+
+      req.authUser = data.user;
+      req.usuario = usuario;
+      req.usuarioId = usuario.id;
+      req.rolUsuario = usuario.rol;
+      next();
+    } catch (err) {
+      console.error('Error verificando sesión:', err.message);
+      Sentry.captureException(err);
+      res.status(500).json({ error: 'Error verificando la sesión.' });
     }
+  }
 
-    const { data, error } = await clienteSupabaseAdmin.auth.getUser(token);
-    if (error || !data?.user) {
-      return res.status(401).json({ error: 'Token inválido o expirado.' });
+  function requireAdmin(req, res, next) {
+    if (req.rolUsuario !== 'administrador') {
+      return res.status(403).json({ error: 'Acceso denegado — se requiere rol administrador.' });
     }
-
-    req.authUser = data.user;
     next();
   }
 
-  async function requireAdmin(req, res, next) {
-    try {
-      const { data, error } = await clienteSupabaseAdmin
-        .from('usuarios')
-        .select('rol')
-        .eq('auth_id', req.authUser.id)
-        .single();
-
-      if (error || !data) {
-        return res.status(403).json({ error: 'Usuario no encontrado en el sistema.' });
-      }
-      if (data.rol !== 'administrador') {
-        return res.status(403).json({ error: 'Acceso denegado — se requiere rol administrador.' });
-      }
-      req.rolUsuario = data.rol;
-      next();
-    } catch (err) {
-      Sentry.captureException(err);
-      res.status(500).json({ error: 'Error verificando permisos.' });
+  function requireMedicoOAdmin(req, res, next) {
+    if (!['medico', 'administrador'].includes(req.rolUsuario)) {
+      return res.status(403).json({ error: 'Acceso denegado.' });
     }
-  }
-
-  async function requireMedicoOAdmin(req, res, next) {
-    try {
-      const { data, error } = await clienteSupabaseAdmin
-        .from('usuarios')
-        .select('id, rol')
-        .eq('auth_id', req.authUser.id)
-        .single();
-
-      if (error || !data) {
-        return res.status(403).json({ error: 'Usuario no encontrado en el sistema.' });
-      }
-      if (!['medico', 'administrador'].includes(data.rol)) {
-        return res.status(403).json({ error: 'Acceso denegado.' });
-      }
-      req.rolUsuario = data.rol;
-      req.usuarioId = data.id;
-      next();
-    } catch (err) {
-      Sentry.captureException(err);
-      res.status(500).json({ error: 'Error verificando permisos.' });
-    }
+    next();
   }
 
   app.get('/', (req, res) => {
@@ -172,10 +222,11 @@ function createApp({ supabase, supabaseAdmin } = {}) {
     try {
       const { sintomas, paciente_id } = req.body;
 
-      if (!sintomas || sintomas.length === 0) {
-        return res.status(400).json({ error: 'Debe proporcionar al menos un síntoma.' });
+      const errorSintomas = validarSintomas(sintomas);
+      if (errorSintomas) {
+        return res.status(400).json({ error: errorSintomas });
       }
-      if (!paciente_id || typeof paciente_id !== 'string') {
+      if (!esUuid(paciente_id)) {
         return res.status(400).json({ error: 'Debe indicar el paciente de esta consulta.' });
       }
 
@@ -183,44 +234,42 @@ function createApp({ supabase, supabaseAdmin } = {}) {
         .from('pacientes')
         .select('id')
         .eq('id', paciente_id)
-        .single();
+        .maybeSingle();
 
-      if (pacienteError || !paciente) {
+      if (pacienteError) throw pacienteError;
+      if (!paciente) {
         return res.status(400).json({ error: 'Paciente no encontrado.' });
       }
 
-      const { data: usuarioActual } = await clienteSupabaseAdmin
-        .from('usuarios')
-        .select('id')
-        .eq('auth_id', req.authUser.id)
-        .single();
-
       const MOTOR_URL = process.env.MOTOR_URL || 'http://localhost:5000';
-      const response = await axios.post(
-        `${MOTOR_URL}/api/diagnosticar`,
-        { sintomas },
-        { headers: { 'X-Internal-Secret': process.env.INTERNAL_SECRET || '' } }
-      );
-
-      const resultado = response.data;
+      let resultado;
+      try {
+        const response = await axios.post(
+          `${MOTOR_URL}/api/diagnosticar`,
+          { sintomas },
+          { headers: { 'X-Internal-Secret': process.env.INTERNAL_SECRET || '' }, timeout: 20000 }
+        );
+        resultado = response.data;
+      } catch (errorMotor) {
+        console.error('Motor de inferencia no disponible:', errorMotor.message);
+        Sentry.captureException(errorMotor);
+        return res.status(503).json({ error: 'El motor de diagnóstico no está disponible. Intenta de nuevo en un momento.' });
+      }
 
       const { data, error } = await clienteSupabaseAdmin.from('consultas').insert([
         {
-          usuario_id: usuarioActual?.id || null,
+          usuario_id: req.usuarioId,
           paciente_id: paciente.id,
           sintomas_ingresados: sintomas,
           resultado: resultado,
         }
       ]).select();
 
-      if (error) {
-        console.error('Error guardando consulta:', error.message);
-        Sentry.captureException(error);
-      }
+      if (error) throw error;
 
       res.json({
         ...resultado,
-        consulta_id: data ? data[0].id : null,
+        consulta_id: data[0].id,
       });
 
     } catch (error) {
@@ -263,6 +312,10 @@ function createApp({ supabase, supabaseAdmin } = {}) {
     try {
       const { id } = req.params;
       const { decision_medico, diagnostico_definitivo } = req.body;
+
+      if (!esUuid(id)) {
+        return res.status(400).json({ error: 'Identificador inválido.' });
+      }
 
       if (!['confirmado', 'descartado'].includes(decision_medico)) {
         return res.status(400).json({ error: 'decision_medico inválido — debe ser "confirmado" o "descartado".' });
@@ -321,8 +374,6 @@ function createApp({ supabase, supabaseAdmin } = {}) {
 
   app.post('/api/pacientes', requireAuth, async (req, res) => {
     try {
-      const { nombre, documento, fecha_nacimiento, alergias, condiciones_cronicas, medicamentos_actuales } = req.body;
-
       const errorValidacion = validarDatosPaciente(req.body);
       if (errorValidacion) {
         return res.status(400).json({ error: errorValidacion });
@@ -330,16 +381,12 @@ function createApp({ supabase, supabaseAdmin } = {}) {
 
       const { data, error } = await clienteSupabaseAdmin
         .from('pacientes')
-        .insert([{
-          nombre: nombre.trim(),
-          documento: documento || null,
-          fecha_nacimiento: fecha_nacimiento || null,
-          alergias: alergias || null,
-          condiciones_cronicas: condiciones_cronicas || null,
-          medicamentos_actuales: medicamentos_actuales || null,
-        }])
+        .insert([{ ...datosPaciente(req.body), creado_por: req.usuarioId, actualizado_por: req.usuarioId }])
         .select(PACIENTE_COLUMNAS);
 
+      if (error?.code === '23505') {
+        return res.status(409).json({ error: 'Ya existe un paciente registrado con ese CUI/DPI.' });
+      }
       if (error) throw error;
       res.json(data[0]);
     } catch (error) {
@@ -352,8 +399,10 @@ function createApp({ supabase, supabaseAdmin } = {}) {
   app.patch('/api/pacientes/:id', requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const { nombre, documento, fecha_nacimiento, alergias, condiciones_cronicas, medicamentos_actuales } = req.body;
 
+      if (!esUuid(id)) {
+        return res.status(400).json({ error: 'Identificador inválido.' });
+      }
       const errorValidacion = validarDatosPaciente(req.body);
       if (errorValidacion) {
         return res.status(400).json({ error: errorValidacion });
@@ -361,17 +410,13 @@ function createApp({ supabase, supabaseAdmin } = {}) {
 
       const { data, error } = await clienteSupabaseAdmin
         .from('pacientes')
-        .update({
-          nombre: nombre.trim(),
-          documento: documento || null,
-          fecha_nacimiento: fecha_nacimiento || null,
-          alergias: alergias || null,
-          condiciones_cronicas: condiciones_cronicas || null,
-          medicamentos_actuales: medicamentos_actuales || null,
-        })
+        .update({ ...datosPaciente(req.body), actualizado_por: req.usuarioId, actualizado_en: new Date().toISOString() })
         .eq('id', id)
         .select(PACIENTE_COLUMNAS);
 
+      if (error?.code === '23505') {
+        return res.status(409).json({ error: 'Ya existe un paciente registrado con ese CUI/DPI.' });
+      }
       if (error) throw error;
       if (!data || data.length === 0) {
         return res.status(404).json({ error: 'Paciente no encontrado.' });
@@ -388,13 +433,18 @@ function createApp({ supabase, supabaseAdmin } = {}) {
     try {
       const { id } = req.params;
 
+      if (!esUuid(id)) {
+        return res.status(400).json({ error: 'Identificador inválido.' });
+      }
+
       const { data: paciente, error: pacienteError } = await clienteSupabaseAdmin
         .from('pacientes')
         .select(PACIENTE_COLUMNAS)
         .eq('id', id)
-        .single();
+        .maybeSingle();
 
-      if (pacienteError || !paciente) {
+      if (pacienteError) throw pacienteError;
+      if (!paciente) {
         return res.status(404).json({ error: 'Paciente no encontrado.' });
       }
 
@@ -415,22 +465,8 @@ function createApp({ supabase, supabaseAdmin } = {}) {
     }
   });
 
-  app.get('/api/usuarios/me', requireAuth, async (req, res) => {
-    try {
-      const { data, error } = await clienteSupabaseAdmin
-        .from('usuarios')
-        .select('id, nombre, correo, rol, activo')
-        .eq('auth_id', req.authUser.id)
-        .single();
-
-      if (error) throw error;
-      if (!data) return res.status(404).json({ error: 'Usuario no encontrado.' });
-      res.json(data);
-    } catch (error) {
-      console.error('Error /api/usuarios/me:', error.message);
-      Sentry.captureException(error);
-      res.status(500).json({ error: 'Error al obtener perfil.' });
-    }
+  app.get('/api/usuarios/me', requireAuth, (req, res) => {
+    res.json(req.usuario);
   });
 
   // Gestión de usuarios. GET visible para médicos y administradores (un
@@ -478,12 +514,18 @@ function createApp({ supabase, supabaseAdmin } = {}) {
         .insert([{ nombre, correo, rol, activo: true, auth_id: authData.user.id }])
         .select(USUARIO_COLUMNAS_PUBLICAS);
 
-      if (error) throw error;
+      if (error) {
+        await clienteSupabaseAdmin.auth.admin.deleteUser(authData.user.id);
+        throw error;
+      }
       res.json(data[0]);
     } catch (error) {
       console.error('Error POST /api/usuarios:', error.message);
+      if (error.code === '23505' || /already|registered/i.test(error.message || '')) {
+        return res.status(409).json({ error: 'Ya existe un usuario con ese correo.' });
+      }
       Sentry.captureException(error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: 'No se pudo crear el usuario.' });
     }
   });
 
@@ -492,8 +534,14 @@ function createApp({ supabase, supabaseAdmin } = {}) {
       const { id } = req.params;
       const { activo } = req.body;
 
+      if (!esUuid(id)) {
+        return res.status(400).json({ error: 'Identificador inválido.' });
+      }
       if (typeof activo !== 'boolean') {
         return res.status(400).json({ error: 'activo debe ser true o false.' });
+      }
+      if (id === req.usuarioId && activo === false) {
+        return res.status(400).json({ error: 'No puedes desactivar tu propia cuenta.' });
       }
 
       const { data, error } = await clienteSupabaseAdmin
@@ -503,6 +551,9 @@ function createApp({ supabase, supabaseAdmin } = {}) {
         .select(USUARIO_COLUMNAS_PUBLICAS);
 
       if (error) throw error;
+      if (!data || data.length === 0) {
+        return res.status(404).json({ error: 'Usuario no encontrado.' });
+      }
       res.json(data[0]);
     } catch (error) {
       console.error('Error PATCH /api/usuarios:', error.message);

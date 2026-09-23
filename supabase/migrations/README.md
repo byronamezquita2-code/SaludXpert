@@ -19,6 +19,7 @@ de esquema nuevo debe agregarse como un archivo numerado en este directorio.
 | 002 | `fase2_consultas_actualizado_por.sql` | Agrega `consultas.actualizado_por` (FK a `usuarios`) para trazar quién confirmó o descartó un diagnóstico. |
 | 003 | `fase3_hardening_usuarios.sql` | Agrega constraints a `usuarios`: `rol` limitado a los 3 valores válidos, `auth_id` único y con FK a `auth.users`. Incluye queries de verificación previa — no aplicar si esas queries devuelven filas. |
 | 004 | `fase5_pacientes.sql` | Crea la tabla `pacientes` (con antecedentes clínicos) y la enlaza a `consultas` vía `paciente_id`. RLS deny-by-default, igual que el resto. |
+| 006 | `produccion_pacientes_y_usuarios.sql` | Agrega `creado_por`/`actualizado_por`/`actualizado_en` a `pacientes`, hace único el CUI/DPI (`documento`) y vuelve obligatorio `usuarios.activo`. Incluye consultas de verificación previa. |
 
 ## Cómo verificar qué ya está aplicado
 
@@ -43,10 +44,16 @@ where conrelid = 'public.usuarios'::regclass
 -- 004: ¿existe la tabla pacientes?
 select table_name from information_schema.tables
 where table_schema = 'public' and table_name = 'pacientes';
+
+-- 006: ¿existen las columnas de trazabilidad y el índice único?
+select column_name from information_schema.columns
+where table_schema = 'public' and table_name = 'pacientes'
+  and column_name in ('creado_por', 'actualizado_por', 'actualizado_en');
+select indexname from pg_indexes where indexname = 'pacientes_documento_unico';
 ```
 
 Si alguna consulta no devuelve lo esperado, corre el archivo correspondiente
-(en orden, 001 → 004) en el SQL Editor.
+(en orden, 001 → 006) en el SQL Editor.
 
 ## Aplicar una migración nueva
 

@@ -91,14 +91,14 @@ tailwind.config={theme:{extend:{"colors":{"on-primary":"#ffffff","on-secondary-c
           <label class="text-label-md text-on-surface" for="nueva-contrasena">Nueva contraseña</label>
           <div class="relative">
             <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">lock</span>
-            <input class="w-full pl-10 pr-4 py-3 bg-surface rounded-lg border border-outline-variant focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-body-lg text-on-surface transition-all" id="nueva-contrasena" placeholder="••••••••" required type="password" minlength="6">
+            <input class="w-full pl-10 pr-4 py-3 bg-surface rounded-lg border border-outline-variant focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-body-lg text-on-surface transition-all" id="nueva-contrasena" placeholder="••••••••" required type="password" minlength="8">
           </div>
         </div>
         <div class="flex flex-col gap-2">
           <label class="text-label-md text-on-surface" for="confirmar-contrasena">Confirmar contraseña</label>
           <div class="relative">
             <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">lock</span>
-            <input class="w-full pl-10 pr-4 py-3 bg-surface rounded-lg border border-outline-variant focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-body-lg text-on-surface transition-all" id="confirmar-contrasena" placeholder="••••••••" required type="password" minlength="6">
+            <input class="w-full pl-10 pr-4 py-3 bg-surface rounded-lg border border-outline-variant focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-body-lg text-on-surface transition-all" id="confirmar-contrasena" placeholder="••••••••" required type="password" minlength="8">
           </div>
         </div>
         <button class="w-full py-4 mt-2 bg-primary text-on-primary text-headline-sm rounded-lg hover:bg-on-primary-fixed-variant transition-colors shadow-sm hover:shadow-md flex items-center justify-center gap-2 group" type="submit">
@@ -125,7 +125,7 @@ tailwind.config={theme:{extend:{"colors":{"on-primary":"#ffffff","on-secondary-c
           </div>
 
           <div class="bg-surface-container-lowest rounded-xl shadow-sm p-lg flex flex-col gap-md">
-            <label class="text-label-md text-on-surface" for="buscar-paciente">Buscar paciente por nombre o documento</label>
+            <label class="text-label-md text-on-surface" for="buscar-paciente">Buscar paciente por nombre o CUI/DPI</label>
             <input id="buscar-paciente" type="text" placeholder="Escriba al menos 2 letras..." autocomplete="off" class="w-full px-4 py-3 bg-surface rounded-lg border border-outline-variant focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-body-lg text-on-surface transition-all">
             <div id="resultados-paciente" class="flex flex-col gap-sm"></div>
           </div>

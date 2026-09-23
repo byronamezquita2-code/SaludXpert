@@ -20,8 +20,11 @@ if (!TEST_EMAIL || !TEST_PASSWORD || !SUPABASE_URL || !SUPABASE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+const NOMBRE_PACIENTE_PRUEBA = 'Paciente Prueba BDD';
+
 let respuestaActual = null;
 let authToken = null;
+let pacientePruebaId = null;
 
 Before(async function () {
   if (!authToken) {
@@ -41,6 +44,21 @@ function apiAuth() {
   });
 }
 
+async function obtenerPacientePrueba() {
+  if (pacientePruebaId) return pacientePruebaId;
+
+  const busqueda = await apiAuth().get('/api/pacientes', { params: { buscar: NOMBRE_PACIENTE_PRUEBA } });
+  const existente = busqueda.data.find(p => p.nombre === NOMBRE_PACIENTE_PRUEBA);
+  if (existente) {
+    pacientePruebaId = existente.id;
+    return pacientePruebaId;
+  }
+
+  const creado = await apiAuth().post('/api/pacientes', { nombre: NOMBRE_PACIENTE_PRUEBA });
+  pacientePruebaId = creado.data.id;
+  return pacientePruebaId;
+}
+
 Given('que el sistema está disponible', async function () {
   const response = await axios.get(`${API_URL}/`);
   assert.strictEqual(response.status, 200);
@@ -48,12 +66,14 @@ Given('que el sistema está disponible', async function () {
 
 When('el personal envía los síntomas {string}', async function (sintomasTexto) {
   const sintomas = sintomasTexto.split(',').map(s => s.trim());
-  const response = await apiAuth().post('/api/diagnosticar', { sintomas });
+  const paciente_id = await obtenerPacientePrueba();
+  const response = await apiAuth().post('/api/diagnosticar', { sintomas, paciente_id });
   respuestaActual = response.data;
 });
 
 When('el personal envía un único síntoma {string}', async function (sintoma) {
-  const response = await apiAuth().post('/api/diagnosticar', { sintomas: [sintoma] });
+  const paciente_id = await obtenerPacientePrueba();
+  const response = await apiAuth().post('/api/diagnosticar', { sintomas: [sintoma], paciente_id });
   respuestaActual = response.data;
 });
 

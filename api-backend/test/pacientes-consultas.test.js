@@ -13,8 +13,11 @@ const { createSupabaseStub } = require('./helpers/supabaseStub');
 const AUTH_USER = { id: 'auth-1' };
 const AUTH_HEADER = ['Authorization', 'Bearer token-valido'];
 
+const UUID = '11111111-1111-4111-8111-111111111111';
+const USUARIO_ENFERMERIA = { data: { id: 'u1', nombre: 'Ana', correo: 'ana@salud.gob.gt', rol: 'enfermeria', activo: true }, error: null };
+
 function appConTablas(tables) {
-  const supabaseAdmin = createSupabaseStub({ user: AUTH_USER, tables });
+  const supabaseAdmin = createSupabaseStub({ user: AUTH_USER, tables: { usuarios: USUARIO_ENFERMERIA, ...tables } });
   return createApp({ supabaseAdmin }).app;
 }
 
@@ -67,7 +70,7 @@ test('PATCH /api/pacientes/:id responde 404 cuando no existe', async () => {
   });
 
   const res = await request(app)
-    .patch('/api/pacientes/no-existe')
+    .patch(`/api/pacientes/${UUID}`)
     .set(...AUTH_HEADER)
     .send({ nombre: 'Ana López' });
 
@@ -76,21 +79,21 @@ test('PATCH /api/pacientes/:id responde 404 cuando no existe', async () => {
 
 test('GET /api/pacientes/:id responde 404 cuando el paciente no existe', async () => {
   const app = appConTablas({
-    pacientes: { data: null, error: { message: 'no encontrado' } },
+    pacientes: { data: null, error: null },
   });
 
-  const res = await request(app).get('/api/pacientes/no-existe').set(...AUTH_HEADER);
+  const res = await request(app).get(`/api/pacientes/${UUID}`).set(...AUTH_HEADER);
 
   assert.equal(res.status, 404);
 });
 
 test('GET /api/pacientes/:id devuelve el paciente con sus consultas', async () => {
   const app = appConTablas({
-    pacientes: { data: { id: 'p1', nombre: 'Ana López' }, error: null },
+    pacientes: { data: { id: UUID, nombre: 'Ana López' }, error: null },
     consultas: { data: [{ id: 'c1', sintomas_ingresados: ['Tos'] }], error: null },
   });
 
-  const res = await request(app).get('/api/pacientes/p1').set(...AUTH_HEADER);
+  const res = await request(app).get(`/api/pacientes/${UUID}`).set(...AUTH_HEADER);
 
   assert.equal(res.status, 200);
   assert.equal(res.body.nombre, 'Ana López');
@@ -102,7 +105,7 @@ test('POST /api/diagnosticar responde 400 sin síntomas', async () => {
   const res = await request(app)
     .post('/api/diagnosticar')
     .set(...AUTH_HEADER)
-    .send({ sintomas: [], paciente_id: 'p1' });
+    .send({ sintomas: [], paciente_id: UUID });
 
   assert.equal(res.status, 400);
 });
@@ -119,13 +122,13 @@ test('POST /api/diagnosticar responde 400 sin paciente_id', async () => {
 
 test('POST /api/diagnosticar responde 400 cuando el paciente no existe', async () => {
   const app = appConTablas({
-    pacientes: { data: null, error: { message: 'no encontrado' } },
+    pacientes: { data: null, error: null },
   });
 
   const res = await request(app)
     .post('/api/diagnosticar')
     .set(...AUTH_HEADER)
-    .send({ sintomas: ['Tos'], paciente_id: 'no-existe' });
+    .send({ sintomas: ['Tos'], paciente_id: UUID });
 
   assert.equal(res.status, 400);
 });
