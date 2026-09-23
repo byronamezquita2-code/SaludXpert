@@ -1,7 +1,18 @@
 import os
+import sentry_sdk
 from flask import Flask, request, jsonify, abort
 from flask_cors import CORS
+from sentry_sdk.integrations.flask import FlaskIntegration
 from motor import calcular_diagnostico
+
+# Sin SENTRY_DSN el SDK queda inicializado pero no envía nada — seguro de
+# dejar siempre activo, incluso en local/tests.
+sentry_sdk.init(
+    dsn=os.environ.get("SENTRY_DSN"),
+    environment=os.environ.get("FLASK_ENV", "development"),
+    integrations=[FlaskIntegration()],
+    traces_sample_rate=0,
+)
 
 app = Flask(__name__)
 
@@ -51,6 +62,7 @@ def diagnosticar():
         })
 
     except Exception as e:
+        sentry_sdk.capture_exception(e)
         return jsonify({"error": str(e)}), 500
 
 

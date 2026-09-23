@@ -5,3 +5,4 @@ pgmpy==0.1.25
 python-dotenv
 supabase
 gunicorn
+sentry-sdk[flask]
