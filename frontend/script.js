@@ -346,7 +346,20 @@ async function esperarSesionDesdeEnlace(intentos = 20) {
   return false;
 }
 
+function hayErrorEnEnlace() {
+  return /[#&]error(_code|_description)?=/.test(window.location.hash);
+}
+
 async function manejarEnlaceEspecial() {
+  if (hayErrorEnEnlace()) {
+    history.replaceState(null, '', window.location.pathname + window.location.search);
+    mostrarPantalla('pantalla-login');
+    await mostrarAlerta(
+      'Enlace expirado o ya usado',
+      'Este enlace ya no sirve. Si es tu primera vez, pide al administrador que te reenvíe la invitación; si ya tienes cuenta, usa "¿Olvidaste tu contraseña?".'
+    );
+    return true;
+  }
   if (!esEnlaceDeInvitacionORecuperacion()) return false;
 
   const sesionLista = await esperarSesionDesdeEnlace();
