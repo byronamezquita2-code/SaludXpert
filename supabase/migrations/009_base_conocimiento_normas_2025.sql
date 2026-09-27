@@ -29,6 +29,12 @@ alter table public.sintomas
   add column if not exists nivel_alerta text
   check (nivel_alerta in ('referir', 'atencion_inmediata'));
 
+-- sintomas_categoria_check venía del esquema base (creado desde el dashboard,
+-- no versionado) y solo permitía 'respiratorio', 'gastrointestinal', 'general'.
+alter table public.sintomas drop constraint if exists sintomas_categoria_check;
+alter table public.sintomas add constraint sintomas_categoria_check
+  check (categoria in ('respiratorio', 'gastrointestinal', 'general', 'urinario', 'oido', 'piel', 'peligro'));
+
 update public.sintomas set categoria = 'urinario'
   where nombre in ('Dolor al orinar', 'Necesidad frecuente de orinar');
 update public.sintomas set categoria = 'oido'
