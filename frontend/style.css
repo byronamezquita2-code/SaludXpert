@@ -2490,3 +2490,54 @@ html[data-theme="dark"] .aviso-conexion { border-color: rgba(132, 181, 230, 0.24
 @media (max-width: 640px) {
   .aviso-inactividad { flex-wrap: wrap; justify-content: center; text-align: center; }
 }
+
+/* ============ SIGNOS DE PELIGRO (Normas MSPAS 2025, Cuadro No. 1) ============ */
+.shell-content .bg-surface-container-lowest.categoria-peligro { border-color: rgba(186, 26, 26, 0.3) !important; }
+.icono-peligro { background: #ffdad6; color: #ba1a1a; }
+.texto-peligro { margin-top: 0; color: #8c1d18; font-size: 14px; line-height: 1.5; }
+
+.btn-sintoma.btn-sintoma-referir { border-color: rgba(186, 26, 26, 0.35); color: #8c1d18; }
+.btn-sintoma.btn-sintoma-atencion_inmediata { border-color: rgba(167, 105, 11, 0.4); color: #6d4300; }
+.btn-sintoma.btn-sintoma-referir.seleccionado {
+  border-color: transparent;
+  background: linear-gradient(135deg, #ba1a1a, #d9463b);
+  box-shadow: 0 10px 21px rgba(186, 26, 26, 0.25);
+  color: #fff;
+}
+.btn-sintoma.btn-sintoma-atencion_inmediata.seleccionado {
+  border-color: transparent;
+  background: linear-gradient(135deg, #a7690b, #d18a1a);
+  box-shadow: 0 10px 21px rgba(167, 105, 11, 0.25);
+  color: #fff;
+}
+
+.alerta-peligro {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 16px 18px;
+  border: 1px solid rgba(167, 105, 11, 0.3);
+  border-radius: 17px;
+  background: #fff4e0;
+  color: #4d3000;
+  line-height: 1.45;
+}
+.alerta-peligro[hidden] { display: none; }
+.alerta-peligro > .material-symbols-outlined { flex-shrink: 0; font-size: 28px; color: #a7690b; }
+.alerta-peligro strong { display: block; font-size: 16px; }
+.alerta-peligro ul { margin: 6px 0; padding-left: 18px; list-style: disc; }
+.alerta-peligro small { opacity: 0.75; }
+.alerta-peligro.alerta-peligro-referir { border-color: rgba(186, 26, 26, 0.35); background: #ffedea; color: #5c1512; }
+.alerta-peligro.alerta-peligro-referir > .material-symbols-outlined { color: #ba1a1a; }
+
+html[data-theme="dark"] .shell-content .bg-surface-container-lowest.categoria-peligro { border-color: rgba(255, 170, 165, 0.3) !important; }
+html[data-theme="dark"] .icono-peligro { background: rgba(133, 38, 41, 0.4); color: #ffaaa5; }
+html[data-theme="dark"] .texto-peligro { color: #ffb4ab; }
+html[data-theme="dark"] .btn-sintoma.btn-sintoma-referir { border-color: rgba(255, 170, 165, 0.35); color: #ffc9c4; }
+html[data-theme="dark"] .btn-sintoma.btn-sintoma-atencion_inmediata { border-color: rgba(255, 200, 120, 0.35); color: #ffddb0; }
+html[data-theme="dark"] .btn-sintoma.btn-sintoma-referir.seleccionado { background: linear-gradient(135deg, #a3201f, #c93a33); color: #fff; }
+html[data-theme="dark"] .btn-sintoma.btn-sintoma-atencion_inmediata.seleccionado { background: linear-gradient(135deg, #8a5709, #b67812); color: #fff; }
+html[data-theme="dark"] .alerta-peligro { border-color: rgba(255, 200, 120, 0.3); background: #2b1d07; color: #ffe5bc; }
+html[data-theme="dark"] .alerta-peligro > .material-symbols-outlined { color: #ffc46b; }
+html[data-theme="dark"] .alerta-peligro.alerta-peligro-referir { border-color: rgba(255, 170, 165, 0.35); background: #2a1215; color: #ffdad6; }
+html[data-theme="dark"] .alerta-peligro.alerta-peligro-referir > .material-symbols-outlined { color: #ffaaa5; }

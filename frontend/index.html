@@ -228,6 +228,15 @@
           </div>
 
           <div class="px-4 md:px-margin-desktop space-y-xl">
+            <div class="bg-surface-container-lowest rounded-xl shadow-sm p-lg categoria-peligro">
+              <div class="flex items-center gap-md mb-sm">
+                <div class="w-12 h-12 rounded-full flex items-center justify-center icono-peligro"><span class="material-symbols-outlined text-2xl">emergency</span></div>
+                <h2 class="text-headline-md font-headline-md text-on-surface">Signos de peligro</h2>
+              </div>
+              <p class="texto-peligro mb-lg">Evalúelos primero. Si hay alguno marcado en rojo: estabilizar y referir de urgencia al hospital más cercano (Normas MSPAS 2025, Cuadro No. 1).</p>
+              <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-md" id="cat-peligro"></div>
+            </div>
+
             <div class="bg-surface-container-lowest rounded-xl shadow-sm p-lg">
               <div class="flex items-center gap-md mb-lg">
                 <div class="w-12 h-12 rounded-full bg-primary-fixed-dim flex items-center justify-center text-on-primary-fixed-variant"><span class="material-symbols-outlined text-2xl">pulmonology</span></div>
@@ -242,6 +251,30 @@
                 <h2 class="text-headline-md font-headline-md text-on-surface">Gastrointestinales</h2>
               </div>
               <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-md" id="cat-gastrointestinal"></div>
+            </div>
+
+            <div class="bg-surface-container-lowest rounded-xl shadow-sm p-lg">
+              <div class="flex items-center gap-md mb-lg">
+                <div class="w-12 h-12 rounded-full bg-tertiary-fixed-dim flex items-center justify-center text-on-tertiary-fixed-variant"><span class="material-symbols-outlined text-2xl">nephrology</span></div>
+                <h2 class="text-headline-md font-headline-md text-on-surface">Urinarios</h2>
+              </div>
+              <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-md" id="cat-urinario"></div>
+            </div>
+
+            <div class="bg-surface-container-lowest rounded-xl shadow-sm p-lg">
+              <div class="flex items-center gap-md mb-lg">
+                <div class="w-12 h-12 rounded-full bg-primary-fixed-dim flex items-center justify-center text-on-primary-fixed-variant"><span class="material-symbols-outlined text-2xl">hearing</span></div>
+                <h2 class="text-headline-md font-headline-md text-on-surface">Oído</h2>
+              </div>
+              <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-md" id="cat-oido"></div>
+            </div>
+
+            <div class="bg-surface-container-lowest rounded-xl shadow-sm p-lg">
+              <div class="flex items-center gap-md mb-lg">
+                <div class="w-12 h-12 rounded-full bg-secondary-fixed-dim flex items-center justify-center text-on-secondary-fixed-variant"><span class="material-symbols-outlined text-2xl">dermatology</span></div>
+                <h2 class="text-headline-md font-headline-md text-on-surface">Piel</h2>
+              </div>
+              <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-md" id="cat-piel"></div>
             </div>
 
             <div class="bg-surface-container-lowest rounded-xl shadow-sm p-lg">
@@ -281,6 +314,8 @@
         <div class="flex flex-col w-full px-4 md:px-margin-desktop py-lg gap-lg">
 
           <div id="banner-paciente-resultado"></div>
+
+          <div id="alerta-peligro" class="alerta-peligro" role="alert" hidden></div>
 
           <div id="banner-advertencia" class="banner-advertencia" style="display:none;">
             <span class="material-symbols-outlined shrink-0">warning</span>

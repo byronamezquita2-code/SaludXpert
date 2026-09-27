@@ -1087,9 +1087,13 @@ document.getElementById('link-recuperar').addEventListener('click', async () => 
   const correo = await mostrarPrompt('Recuperar contraseña', 'tu@correo.com');
   if (!correo) return;
 
-  const { error } = await supabaseClient.auth.resetPasswordForEmail(correo);
-  if (error) {
-    await mostrarAlerta('Error', 'No se pudo enviar el correo de recuperación.');
+  const { error } = await supabaseClient.auth.resetPasswordForEmail(correo, {
+    redirectTo: `${window.location.origin}/`,
+  });
+  if (error?.status === 429 || error?.code === 'over_email_send_rate_limit') {
+    await mostrarAlerta('Espera unos minutos', 'Se pidieron demasiados correos de recuperación. Intenta de nuevo más tarde.');
+  } else if (error) {
+    await mostrarAlerta('Error', 'No se pudo enviar el correo de recuperación. Revisa que el correo esté bien escrito.');
   } else {
     await mostrarAlerta('Correo enviado', 'Revisa tu bandeja de entrada para restablecer tu contraseña.');
   }
@@ -1207,24 +1211,26 @@ async function cargarSintomas() {
   try {
     listaSintomas = await apiFetch('/api/sintomas');
 
-    const categorias = {
-      respiratorio: document.getElementById('cat-respiratorio'),
-      gastrointestinal: document.getElementById('cat-gastrointestinal'),
-      general: document.getElementById('cat-general'),
-    };
-
-    Object.values(categorias).forEach(c => c.innerHTML = '');
+    const categorias = {};
+    ['peligro', 'respiratorio', 'gastrointestinal', 'urinario', 'oido', 'piel', 'general'].forEach(c => {
+      categorias[c] = document.getElementById(`cat-${c}`);
+      categorias[c].innerHTML = '';
+    });
 
     listaSintomas.forEach(sintoma => {
       const btn = document.createElement('button');
       btn.className = 'btn-sintoma';
+      if (sintoma.nivel_alerta) btn.classList.add(`btn-sintoma-${sintoma.nivel_alerta}`);
       btn.textContent = sintoma.nombre;
       btn.dataset.nombre = sintoma.nombre;
+      if (sintomasSeleccionados.includes(sintoma.nombre)) btn.classList.add('seleccionado');
       btn.addEventListener('click', () => toggleSintoma(btn, sintoma.nombre));
 
-      if (categorias[sintoma.categoria]) {
-        categorias[sintoma.categoria].appendChild(btn);
-      }
+      (categorias[sintoma.categoria] || categorias.general).appendChild(btn);
+    });
+
+    Object.values(categorias).forEach(c => {
+      c.closest('.bg-surface-container-lowest').style.display = c.children.length ? '' : 'none';
     });
 
     fadeIn('#pantalla-sintomas .bg-surface-container-lowest.shadow-sm', { stagger: 0.08 });
@@ -1281,18 +1287,58 @@ document.getElementById('btn-analizar').addEventListener('click', async () => {
   }
 });
 
+function renderAlertaPeligro(sintomas) {
+  const alerta = document.getElementById('alerta-peligro');
+  const conAlerta = listaSintomas.filter(s => s.nivel_alerta && sintomas.includes(s.nombre));
+  const referir = conAlerta.filter(s => s.nivel_alerta === 'referir');
+  const inmediata = conAlerta.filter(s => s.nivel_alerta === 'atencion_inmediata');
+
+  if (!conAlerta.length) {
+    alerta.hidden = true;
+    alerta.innerHTML = '';
+    return;
+  }
+
+  const lista = items => items.map(s => `<li>${escaparHtml(s.nombre)}</li>`).join('');
+  alerta.classList.toggle('alerta-peligro-referir', referir.length > 0);
+  alerta.innerHTML = referir.length
+    ? `<span class="material-symbols-outlined" aria-hidden="true">emergency</span>
+       <div>
+         <strong>Signos de peligro: estabilizar y referir de urgencia al hospital más cercano.</strong>
+         <ul>${lista(referir)}${lista(inmediata)}</ul>
+         <small>Normas de Atención Integral MSPAS 2025, Cuadro No. 1.</small>
+       </div>`
+    : `<span class="material-symbols-outlined" aria-hidden="true">priority_high</span>
+       <div>
+         <strong>Requiere atención inmediata en el servicio de salud.</strong>
+         <ul>${lista(inmediata)}</ul>
+         <small>Normas de Atención Integral MSPAS 2025, Cuadro No. 1.</small>
+       </div>`;
+  alerta.hidden = false;
+}
+
 function mostrarResultado(resultado) {
   renderBannerPaciente('banner-paciente-resultado');
+  renderAlertaPeligro(resultado.sintomas_ingresados || sintomasSeleccionados);
+
+  const diagnosticos = resultado.diagnosticos || [];
+  const principal = diagnosticos[0];
 
   const banner = document.getElementById('banner-advertencia');
-  banner.style.display = resultado.confianza_suficiente ? 'none' : 'block';
+  banner.style.display = resultado.confianza_suficiente || !principal ? 'none' : 'block';
 
   const puedeDecidir = ['medico', 'administrador'].includes(usuarioActual?.rol);
-  document.getElementById('btn-confirmar').style.display = puedeDecidir ? '' : 'none';
+  document.getElementById('btn-confirmar').style.display = puedeDecidir && principal ? '' : 'none';
   document.getElementById('btn-descartar').style.display = puedeDecidir ? '' : 'none';
 
-  const diagnosticos = resultado.diagnosticos;
-  const principal = diagnosticos[0];
+  if (!principal) {
+    document.getElementById('resultado-principal').innerHTML = `
+      <div class="nombre-enfermedad">Sin coincidencias</div>
+      <p class="text-body-md text-on-surface-variant">Los síntomas seleccionados no corresponden a ninguna enfermedad de la base de conocimiento. Se requiere evaluación clínica.</p>
+    `;
+    document.getElementById('resultados-alternativos').innerHTML = '';
+    return;
+  }
 
   document.getElementById('resultado-principal').innerHTML = `
     <div class="nombre-enfermedad">${escaparHtml(principal.enfermedad)}</div>
@@ -1491,9 +1537,10 @@ document.getElementById('btn-agregar-usuario').addEventListener('click', async (
   const correo = await mostrarPrompt('Correo electrónico', 'usuario@salud.gob.gt');
   if (!correo) return;
 
-  const rol = await mostrarPrompt('Rol', 'medico / enfermeria / administrador');
-  if (!rol || !['medico', 'enfermeria', 'administrador'].includes(rol)) {
-    await mostrarAlerta('Rol inválido', 'Debe ser: medico, enfermeria o administrador.');
+  const rolEscrito = await mostrarPrompt('Rol', 'medico / enfermeria');
+  const rol = (rolEscrito || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  if (!['medico', 'enfermeria'].includes(rol)) {
+    await mostrarAlerta('Rol inválido', 'Debe ser: medico o enfermeria.');
     return;
   }
 

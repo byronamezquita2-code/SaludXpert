@@ -22,6 +22,7 @@ de esquema nuevo debe agregarse como un archivo numerado en este directorio.
 | 006 | `produccion_pacientes_y_usuarios.sql` | Agrega `creado_por`/`actualizado_por`/`actualizado_en` a `pacientes`, hace único el CUI/DPI (`documento`) y vuelve obligatorio `usuarios.activo`. Incluye consultas de verificación previa. |
 | 007 | `eliminar_usuarios_conserva_historial.sql` | Cambia todas las FKs hacia `usuarios` a `ON DELETE SET NULL`, para poder eliminar un usuario conservando sus consultas y pacientes. |
 | 008 | `auditoria.sql` | Crea la tabla `auditoria` (quién creó, activó/desactivó o eliminó usuarios y cuándo). RLS deny-by-default. |
+| 009 | `base_conocimiento_normas_2025.sql` | Alinea la base de conocimiento con las Normas MSPAS 2025 (Módulo Niñez): signos de peligro del Cuadro No. 1 (`sintomas.nivel_alerta`), 22 síntomas y 35 relaciones nuevas, Escabiosis (B86) y categorías urinario/oído/piel. Solo agrega; probabilidades pendientes de validación médica. |
 
 ## Cómo verificar qué ya está aplicado
 

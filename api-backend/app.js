@@ -510,8 +510,9 @@ function createApp({ supabase, supabaseAdmin } = {}) {
     try {
       const { nombre, correo, rol } = req.body;
 
-      if (!['medico', 'enfermeria', 'administrador'].includes(rol)) {
-        return res.status(400).json({ error: 'Rol inválido.' });
+      // Por decisión del centro hay un único administrador; no se crean más desde la app.
+      if (!['medico', 'enfermeria'].includes(rol)) {
+        return res.status(400).json({ error: 'Rol inválido — solo se pueden crear usuarios de medicina o enfermería.' });
       }
       if (typeof nombre !== 'string' || nombre.trim().length === 0 || nombre.length > 200) {
         return res.status(400).json({ error: 'Nombre inválido — debe tener entre 1 y 200 caracteres.' });
@@ -520,9 +521,11 @@ function createApp({ supabase, supabaseAdmin } = {}) {
         return res.status(400).json({ error: 'Correo inválido.' });
       }
 
+      // El enlace de la invitación vuelve al mismo frontend desde el que invitó el administrador.
+      const origen = allowedOrigins.includes(req.headers.origin) ? `${req.headers.origin}/` : undefined;
       const { data: authData, error: authError } = await clienteSupabaseAdmin.auth.admin.inviteUserByEmail(
         correo,
-        { data: { nombre, rol } }
+        { data: { nombre, rol }, redirectTo: origen }
       );
 
       if (authError) throw authError;

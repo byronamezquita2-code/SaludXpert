@@ -127,3 +127,43 @@ test('PATCH /api/usuarios/:id exige que "activo" sea booleano', async () => {
 
   assert.equal(res.status, 400);
 });
+
+test('POST /api/usuarios no permite crear otro administrador', async () => {
+  const app = appConAdmin({ rol: 'administrador' });
+  const res = await request(app)
+    .post('/api/usuarios')
+    .set('Authorization', 'Bearer token-valido')
+    .send({ nombre: 'Otro', correo: 'otro@salud.gob.gt', rol: 'administrador' });
+
+  assert.equal(res.status, 400);
+});
+
+test('la invitación redirige solo a un origen permitido', async () => {
+  const redirecciones = [];
+  const crear = () => createApp({
+    supabaseAdmin: createSupabaseStub({
+      user: AUTH_USER,
+      tables: {
+        usuarios: [
+          { data: { id: 'u1', rol: 'administrador', activo: true }, error: null },
+          { data: [{ id: 'u2', correo: 'nueva@salud.gob.gt', rol: 'medico', activo: true }], error: null },
+        ],
+        auditoria: { data: null, error: null },
+      },
+      inviteUser: async (_correo, opciones) => {
+        redirecciones.push(opciones.redirectTo);
+        return { data: { user: { id: 'auth-nuevo' } }, error: null };
+      },
+    }),
+  }).app;
+
+  for (const origin of ['http://127.0.0.1:5500', 'https://sitio-malicioso.example']) {
+    await request(crear())
+      .post('/api/usuarios')
+      .set('Authorization', 'Bearer token-valido')
+      .set('Origin', origin)
+      .send({ nombre: 'Nueva', correo: 'nueva@salud.gob.gt', rol: 'medico' });
+  }
+
+  assert.deepEqual(redirecciones, ['http://127.0.0.1:5500/']);
+});
