@@ -70,12 +70,87 @@ function aplicarTema(tema, persistir = true) {
 aplicarTema(obtenerTemaActual(), false);
 
 async function cerrarSesionForzada(mensaje) {
+  detenerControlInactividad();
   await supabaseClient.auth.signOut();
   usuarioActual = null;
   mostrarPantalla('pantalla-login');
   document.getElementById('mensaje-error').textContent = mensaje;
   revelarLogin({ focus: false, immediate: true });
 }
+
+const INACTIVIDAD_LIMITE_MS = 15 * 60 * 1000;
+const INACTIVIDAD_AVISO_MS = 60 * 1000;
+const ACTIVIDAD_STORAGE_KEY = 'saludxpert-ultima-actividad';
+const avisoInactividad = document.getElementById('aviso-inactividad');
+const avisoInactividadSegundos = document.getElementById('aviso-inactividad-segundos');
+let ultimaActividad = Date.now();
+let ultimaActividadGuardada = 0;
+let intervaloInactividad = null;
+
+// La última actividad se comparte entre pestañas para no cerrar la sesión
+// de una pestaña en uso porque otra quedó abierta sin tocar.
+function leerActividadGuardada() {
+  try {
+    return Number(localStorage.getItem(ACTIVIDAD_STORAGE_KEY)) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+function leerUltimaActividad() {
+  return Math.max(ultimaActividad, leerActividadGuardada());
+}
+
+function registrarActividad() {
+  if (!intervaloInactividad) return;
+  ultimaActividad = Date.now();
+  avisoInactividad.hidden = true;
+  if (ultimaActividad - ultimaActividadGuardada > 5000) {
+    ultimaActividadGuardada = ultimaActividad;
+    try {
+      localStorage.setItem(ACTIVIDAD_STORAGE_KEY, String(ultimaActividad));
+    } catch {}
+  }
+}
+
+function revisarInactividad() {
+  if (!intervaloInactividad || !usuarioActual) return;
+  const restante = INACTIVIDAD_LIMITE_MS - (Date.now() - leerUltimaActividad());
+
+  if (restante <= 0) {
+    if (appDialog.open) appDialog.close();
+    cerrarSesionForzada('Tu sesión se cerró por inactividad. Inicia sesión de nuevo.');
+    return;
+  }
+  if (restante <= INACTIVIDAD_AVISO_MS) {
+    avisoInactividadSegundos.textContent = Math.ceil(restante / 1000);
+    avisoInactividad.hidden = false;
+  } else {
+    avisoInactividad.hidden = true;
+  }
+}
+
+function iniciarControlInactividad() {
+  ultimaActividadGuardada = 0;
+  if (!intervaloInactividad) intervaloInactividad = setInterval(revisarInactividad, 1000);
+  registrarActividad();
+}
+
+function detenerControlInactividad() {
+  clearInterval(intervaloInactividad);
+  intervaloInactividad = null;
+  avisoInactividad.hidden = true;
+}
+
+['pointerdown', 'keydown', 'wheel', 'touchstart', 'scroll'].forEach(evento =>
+  document.addEventListener(evento, registrarActividad, { capture: true, passive: true }));
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') revisarInactividad();
+});
+document.getElementById('btn-seguir-conectado').addEventListener('click', registrarActividad);
+
+const avisoConexion = document.getElementById('aviso-conexion');
+let peticionesLentas = 0;
 
 async function apiFetch(path, options = {}) {
   const { data: sessionData } = await supabaseClient.auth.getSession();
@@ -87,11 +162,22 @@ async function apiFetch(path, options = {}) {
     ...(options.headers || {}),
   };
 
+  // El plan gratuito de Render se duerme; si tarda, avisar en vez de parecer colgado.
+  let marcadaLenta = false;
+  const temporizadorLento = setTimeout(() => {
+    marcadaLenta = true;
+    peticionesLentas++;
+    avisoConexion.hidden = false;
+  }, 4000);
+
   let response;
   try {
     response = await fetch(`${API_URL}${path}`, { ...options, headers });
   } catch {
     throw new Error('Sin conexión — revisa tu internet e intenta de nuevo.');
+  } finally {
+    clearTimeout(temporizadorLento);
+    if (marcadaLenta && --peticionesLentas === 0) avisoConexion.hidden = true;
   }
 
   if (response.status === 401) {
@@ -592,6 +678,7 @@ function topbarHTML() {
 }
 
 function inyectarShell(rol) {
+  iniciarControlInactividad();
   const pantallas = ['paciente', 'sintomas', 'resultado', 'historial', 'admin'];
   pantallas.forEach(p => {
     const sidebar = document.getElementById(`sidebar-${p}`);
@@ -745,6 +832,7 @@ function registrarEventosShell() {
 
   document.querySelectorAll('.btn-logout').forEach(btn =>
     btn.addEventListener('click', async () => {
+      detenerControlInactividad();
       await supabaseClient.auth.signOut();
       usuarioActual = null;
       document.getElementById('correo').value = '';
@@ -941,12 +1029,26 @@ document.getElementById('form-nueva-contrasena').addEventListener('submit', asyn
 
 (async function iniciarApp() {
   prepararLogin();
+  // Despierta la API de Render mientras la persona escribe sus credenciales.
+  fetch(`${API_URL}/`).catch(() => {});
 
   const manejadoPorEnlaceEspecial = await manejarEnlaceEspecial();
-  if (!manejadoPorEnlaceEspecial) {
-    await restaurarSesion();
+  if (manejadoPorEnlaceEspecial) return;
+
+  const ultima = leerActividadGuardada();
+  const { data } = await supabaseClient.auth.getSession();
+  if (data?.session && ultima && Date.now() - ultima > INACTIVIDAD_LIMITE_MS) {
+    await cerrarSesionForzada('Tu sesión se cerró por inactividad. Inicia sesión de nuevo.');
+    return;
   }
+  await restaurarSesion();
 })();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
 
 document.getElementById('form-login').addEventListener('submit', async (e) => {
   e.preventDefault();

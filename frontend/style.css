@@ -2412,3 +2412,81 @@ html[data-theme="dark"] .banner-paciente .paciente-antecedente strong { color: #
   #tabla-usuarios-body td.celda-acciones { grid-column: 1 / -1; text-align: left; padding-top: 4px; }
   .acciones-usuario { display: flex; justify-content: flex-start; }
 }
+
+/* ============ AVISOS: privacidad, inactividad y conexión lenta ============ */
+.login-aviso-privacidad {
+  margin: 4px 0 0;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.72rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.aviso-inactividad,
+.aviso-conexion {
+  position: fixed;
+  left: 50%;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  padding: 12px 14px 12px 16px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.4;
+  transform: translateX(-50%);
+  box-shadow: 0 14px 34px rgba(12, 32, 58, 0.22);
+}
+.aviso-inactividad[hidden],
+.aviso-conexion[hidden] { display: none; }
+
+.aviso-inactividad {
+  bottom: max(20px, env(safe-area-inset-bottom));
+  border: 1px solid rgba(186, 26, 26, 0.2);
+  background: #fff4f2;
+  color: #5c1512;
+}
+.aviso-inactividad p { margin: 0; }
+.aviso-inactividad .material-symbols-outlined { color: #ba1a1a; }
+#btn-seguir-conectado {
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 7px 14px;
+  border: 0;
+  border-radius: 11px;
+  background: #0b66dc;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+#btn-seguir-conectado:focus-visible { outline: 2px solid #0b66dc; outline-offset: 2px; }
+
+.aviso-conexion {
+  top: max(16px, env(safe-area-inset-top));
+  border: 1px solid rgba(10, 98, 215, 0.18);
+  background: #eef5ff;
+  color: #14273d;
+}
+.aviso-conexion-spinner {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(10, 98, 215, 0.22);
+  border-top-color: #0b66dc;
+  border-radius: 50%;
+  animation: aviso-giro 0.8s linear infinite;
+}
+@keyframes aviso-giro { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .aviso-conexion-spinner { animation-duration: 2.4s; } }
+
+html[data-theme="dark"] .aviso-inactividad { border-color: rgba(255, 170, 165, 0.28); background: #2a1215; color: #ffdad6; }
+html[data-theme="dark"] .aviso-inactividad .material-symbols-outlined { color: #ffaaa5; }
+html[data-theme="dark"] .aviso-conexion { border-color: rgba(132, 181, 230, 0.24); background: #0d1a2b; color: #eaf2ff; }
+
+@media (max-width: 640px) {
+  .aviso-inactividad { flex-wrap: wrap; justify-content: center; text-align: center; }
+}

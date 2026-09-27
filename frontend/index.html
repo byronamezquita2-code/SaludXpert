@@ -9,16 +9,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#004d99">
-<script>
-  try {
-    const savedTheme = localStorage.getItem('saludxpert-theme');
-    const initialTheme = savedTheme === 'dark' ? 'dark' : 'light';
-    document.documentElement.dataset.theme = initialTheme;
-    document.documentElement.style.colorScheme = initialTheme;
-  } catch {
-    document.documentElement.dataset.theme = 'light';
-  }
-</script>
+<script src="theme-init.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="tailwind.css">
@@ -97,6 +88,10 @@
               <button class="link-recuperar" id="link-recuperar" type="button">¿Olvidaste tu contraseña?</button>
               <span aria-hidden="true"></span>
             </div>
+
+            <p class="login-aviso-privacidad">
+              Acceso exclusivo para personal autorizado. La información clínica es confidencial y solo debe usarse para la atención de pacientes.
+            </p>
           </form>
         </div>
       </div>
@@ -430,8 +425,19 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<div id="aviso-inactividad" class="aviso-inactividad" role="alertdialog" aria-live="assertive" aria-labelledby="aviso-inactividad-texto" hidden>
+  <span class="material-symbols-outlined" aria-hidden="true">timer</span>
+  <p id="aviso-inactividad-texto">Tu sesión se cerrará en <strong id="aviso-inactividad-segundos">60</strong> s por inactividad.</p>
+  <button id="btn-seguir-conectado" type="button">Seguir conectado</button>
+</div>
+
+<div id="aviso-conexion" class="aviso-conexion" role="status" aria-live="polite" hidden>
+  <span class="aviso-conexion-spinner" aria-hidden="true"></span>
+  <span>Conectando con el servidor… la primera vez puede tardar hasta un minuto.</span>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js" integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js" integrity="sha384-g4NTh/Iv5PPU4xPyhEWqPcwtNXOvdaDI8LLnyYfyNZOjKJeYQyjzQ9X5275eBjpt" crossorigin="anonymous"></script>
 <script src="script.js"></script>
 </body>
 </html>

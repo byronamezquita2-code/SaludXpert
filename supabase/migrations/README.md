@@ -21,6 +21,7 @@ de esquema nuevo debe agregarse como un archivo numerado en este directorio.
 | 004 | `fase5_pacientes.sql` | Crea la tabla `pacientes` (con antecedentes clínicos) y la enlaza a `consultas` vía `paciente_id`. RLS deny-by-default, igual que el resto. |
 | 006 | `produccion_pacientes_y_usuarios.sql` | Agrega `creado_por`/`actualizado_por`/`actualizado_en` a `pacientes`, hace único el CUI/DPI (`documento`) y vuelve obligatorio `usuarios.activo`. Incluye consultas de verificación previa. |
 | 007 | `eliminar_usuarios_conserva_historial.sql` | Cambia todas las FKs hacia `usuarios` a `ON DELETE SET NULL`, para poder eliminar un usuario conservando sus consultas y pacientes. |
+| 008 | `auditoria.sql` | Crea la tabla `auditoria` (quién creó, activó/desactivó o eliminó usuarios y cuándo). RLS deny-by-default. |
 
 ## Cómo verificar qué ya está aplicado
 
@@ -55,10 +56,14 @@ select indexname from pg_indexes where indexname = 'pacientes_documento_unico';
 -- 007: ¿las FKs hacia usuarios son ON DELETE SET NULL? (todas deben tener confdeltype = 'n')
 select conrelid::regclass as tabla, conname, confdeltype from pg_constraint
 where contype = 'f' and confrelid = 'public.usuarios'::regclass;
+
+-- 008: ¿existe la tabla auditoria?
+select table_name from information_schema.tables
+where table_schema = 'public' and table_name = 'auditoria';
 ```
 
 Si alguna consulta no devuelve lo esperado, corre el archivo correspondiente
-(en orden, 001 → 007) en el SQL Editor.
+(en orden, 001 → 008) en el SQL Editor.
 
 ## Aplicar una migración nueva
 

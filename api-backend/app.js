@@ -176,6 +176,24 @@ function createApp({ supabase, supabaseAdmin } = {}) {
     }
   }
 
+  // Un fallo al auditar no debe impedir la acción ya realizada; se reporta a Sentry.
+  async function registrarAuditoria(req, accion, objetivo, detalle = null) {
+    try {
+      const { error } = await clienteSupabaseAdmin.from('auditoria').insert([{
+        actor_id: req.usuarioId,
+        actor_correo: req.usuario?.correo ?? null,
+        accion,
+        objetivo_id: objetivo?.id ?? null,
+        objetivo_correo: objetivo?.correo ?? null,
+        detalle,
+      }]);
+      if (error) throw error;
+    } catch (error) {
+      console.error(`Error registrando auditoría (${accion}):`, error.message);
+      Sentry.captureException(error);
+    }
+  }
+
   function requireAdmin(req, res, next) {
     if (req.rolUsuario !== 'administrador') {
       return res.status(403).json({ error: 'Acceso denegado — se requiere rol administrador.' });
@@ -518,6 +536,7 @@ function createApp({ supabase, supabaseAdmin } = {}) {
         await clienteSupabaseAdmin.auth.admin.deleteUser(authData.user.id);
         throw error;
       }
+      await registrarAuditoria(req, 'usuario_creado', data[0], { nombre, rol });
       res.json(data[0]);
     } catch (error) {
       console.error('Error POST /api/usuarios:', error.message);
@@ -554,6 +573,7 @@ function createApp({ supabase, supabaseAdmin } = {}) {
       if (!data || data.length === 0) {
         return res.status(404).json({ error: 'Usuario no encontrado.' });
       }
+      await registrarAuditoria(req, activo ? 'usuario_activado' : 'usuario_desactivado', data[0]);
       res.json(data[0]);
     } catch (error) {
       console.error('Error PATCH /api/usuarios:', error.message);
@@ -577,7 +597,7 @@ function createApp({ supabase, supabaseAdmin } = {}) {
         .from('usuarios')
         .delete()
         .eq('id', id)
-        .select('id, auth_id');
+        .select('id, auth_id, nombre, correo, rol');
 
       if (error) {
         // 23503 solo ocurre si falta la migración 007 (FKs hacia usuarios con ON DELETE SET NULL).
@@ -591,6 +611,8 @@ function createApp({ supabase, supabaseAdmin } = {}) {
       if (!data || data.length === 0) {
         return res.status(404).json({ error: 'Usuario no encontrado.' });
       }
+
+      await registrarAuditoria(req, 'usuario_eliminado', data[0], { nombre: data[0].nombre, rol: data[0].rol });
 
       const authId = data[0].auth_id;
       if (authId) {

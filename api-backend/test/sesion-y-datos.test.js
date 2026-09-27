@@ -20,7 +20,7 @@ const usuario = (extra = {}) => ({
 });
 
 function crearApp({ tables = {}, user = { id: 'auth-1' }, stubExtra = {} } = {}) {
-  const supabaseAdmin = createSupabaseStub({ user, tables: { usuarios: usuario(), ...tables }, ...stubExtra });
+  const supabaseAdmin = createSupabaseStub({ user, tables: { usuarios: usuario(), auditoria: { data: null, error: null }, ...tables }, ...stubExtra });
   return createApp({ supabaseAdmin }).app;
 }
 
@@ -290,4 +290,43 @@ test('DELETE /api/usuarios/:id responde 404 si el usuario no existe', async () =
   const res = await request(app).delete(`/api/usuarios/${otro}`).set(...AUTH);
 
   assert.equal(res.status, 404);
+});
+
+test('eliminar un usuario queda registrado en auditoría con quién lo hizo', async () => {
+  const otro = '22222222-2222-4222-8222-222222222222';
+  const supabaseAdmin = createSupabaseStub({
+    user: { id: 'auth-1' },
+    tables: {
+      usuarios: [
+        usuario({ rol: 'administrador' }),
+        { data: [{ id: otro, auth_id: 'auth-otro', nombre: 'Dr. Prueba', correo: 'prueba@salud.gob.gt', rol: 'medico' }], error: null },
+      ],
+      auditoria: { data: null, error: null },
+    },
+  });
+  const app = createApp({ supabaseAdmin }).app;
+  const res = await request(app).delete(`/api/usuarios/${otro}`).set(...AUTH);
+
+  assert.equal(res.status, 200);
+  const registro = supabaseAdmin.inserts.find(i => i.table === 'auditoria')?.filas[0];
+  assert.equal(registro.accion, 'usuario_eliminado');
+  assert.equal(registro.actor_id, UUID);
+  assert.equal(registro.actor_correo, 'ana@salud.gob.gt');
+  assert.equal(registro.objetivo_correo, 'prueba@salud.gob.gt');
+});
+
+test('si falla la escritura de auditoría, la acción igual se completa', async () => {
+  const otro = '22222222-2222-4222-8222-222222222222';
+  const app = crearApp({
+    tables: {
+      usuarios: [
+        usuario({ rol: 'administrador' }),
+        { data: [{ id: otro, correo: 'x@salud.gob.gt', activo: false }], error: null },
+      ],
+      auditoria: { data: null, error: { message: 'relation "auditoria" does not exist' } },
+    },
+  });
+  const res = await request(app).patch(`/api/usuarios/${otro}`).set(...AUTH).send({ activo: false });
+
+  assert.equal(res.status, 200);
 });

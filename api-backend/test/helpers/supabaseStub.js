@@ -29,7 +29,7 @@ function nextResult(queues, table) {
   return q;
 }
 
-function builderFor(queues, table) {
+function builderFor(queues, table, inserts) {
   const result = nextResult(queues, table);
   const builder = {
     select: () => builder,
@@ -38,7 +38,7 @@ function builderFor(queues, table) {
     limit: () => builder,
     gte: () => builder,
     or: () => builder,
-    insert: () => builder,
+    insert: (filas) => { inserts.push({ table, filas }); return builder; },
     update: () => builder,
     delete: () => builder,
     single: () => Promise.resolve(result),
@@ -50,9 +50,11 @@ function builderFor(queues, table) {
 
 function createSupabaseStub({ user = null, tables = {}, inviteUser, deleteUser } = {}) {
   const queues = { ...tables };
+  const inserts = [];
 
   return {
-    from: (table) => builderFor(queues, table),
+    inserts,
+    from: (table) => builderFor(queues, table, inserts),
     auth: {
       getUser: async () =>
         user ? { data: { user }, error: null } : { data: null, error: { message: 'invalid token' } },
