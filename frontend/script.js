@@ -1514,7 +1514,7 @@ async function cargarPanelAdmin() {
         btn.addEventListener('click', async () => {
           const confirmado = await mostrarConfirmacion(
             'Eliminar usuario',
-            `¿Eliminar a ${btn.dataset.nombre}? Esta acción no se puede deshacer.`,
+            `¿Eliminar a ${btn.dataset.nombre}? Sus consultas y pacientes registrados se conservan. Esta acción no se puede deshacer.`,
             'Eliminar'
           );
           if (!confirmado) return;

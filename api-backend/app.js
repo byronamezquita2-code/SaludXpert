@@ -580,10 +580,10 @@ function createApp({ supabase, supabaseAdmin } = {}) {
         .select('id, auth_id');
 
       if (error) {
-        // 23503: consultas o pacientes lo referencian; borrarlo rompería el historial clínico.
+        // 23503 solo ocurre si falta la migración 007 (FKs hacia usuarios con ON DELETE SET NULL).
         if (error.code === '23503') {
           return res.status(409).json({
-            error: 'Este usuario tiene consultas o pacientes registrados y no se puede eliminar. Desactívalo en su lugar.',
+            error: 'Este usuario tiene consultas o pacientes registrados y la base de datos aún no permite eliminarlo. Desactívalo en su lugar.',
           });
         }
         throw error;
