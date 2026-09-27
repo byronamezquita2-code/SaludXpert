@@ -2,6 +2,8 @@ const SUPABASE_URL = 'https://bpisojfqhsaisfvnwhpr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_I0o7hKokgpc5hyIcBZeRQg_nLHEm60L';
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const API_URL = 'https://saludxpert-api.onrender.com';
+const THEME_STORAGE_KEY = 'saludxpert-theme';
+let transicionTemaActiva = null;
 
 let sintomasSeleccionados = [];
 let listaSintomas = [];
@@ -9,12 +11,70 @@ let ultimoResultado = null;
 let usuarioActual = null;
 let pacienteActual = null;
 let busquedaPacienteTimeout = null;
+let ultimaActivacionTeclado = 0;
+
+function obtenerTemaActual() {
+  return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+}
+
+function actualizarControlesTema() {
+  const tema = obtenerTemaActual();
+  document.querySelectorAll('.theme-option').forEach(boton => {
+    const activo = boton.dataset.themeValue === tema;
+    boton.classList.toggle('is-active', activo);
+    boton.setAttribute('aria-checked', String(activo));
+    boton.tabIndex = activo ? 0 : -1;
+  });
+  document.querySelectorAll('.theme-switcher').forEach(control => {
+    control.dataset.activeTheme = tema;
+    control.setAttribute('aria-label', tema === 'dark' ? 'Apariencia: modo noche' : 'Apariencia: modo día');
+  });
+}
+
+function aplicarTema(tema, persistir = true) {
+  const temaSeguro = tema === 'dark' ? 'dark' : 'light';
+  if (persistir && temaSeguro === obtenerTemaActual()) return;
+
+  const confirmarCambio = () => {
+    document.documentElement.dataset.theme = temaSeguro;
+    document.documentElement.style.colorScheme = temaSeguro;
+
+    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    if (metaThemeColor) metaThemeColor.content = temaSeguro === 'dark' ? '#05070b' : '#edf4fc';
+
+    if (persistir) {
+      try {
+        localStorage.setItem(THEME_STORAGE_KEY, temaSeguro);
+      } catch {
+        // El tema sigue funcionando aunque el navegador bloquee el almacenamiento.
+      }
+    }
+
+    actualizarControlesTema();
+  };
+
+  const reducirMovimiento = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!persistir || reducirMovimiento || typeof document.startViewTransition !== 'function') {
+    confirmarCambio();
+    return;
+  }
+
+  transicionTemaActiva?.skipTransition();
+  const transicion = document.startViewTransition(confirmarCambio);
+  transicionTemaActiva = transicion;
+  transicion.finished.finally(() => {
+    if (transicionTemaActiva === transicion) transicionTemaActiva = null;
+  });
+}
+
+aplicarTema(obtenerTemaActual(), false);
 
 async function cerrarSesionForzada(mensaje) {
   await supabaseClient.auth.signOut();
   usuarioActual = null;
   mostrarPantalla('pantalla-login');
   document.getElementById('mensaje-error').textContent = mensaje;
+  revelarLogin({ focus: false, immediate: true });
 }
 
 async function apiFetch(path, options = {}) {
@@ -117,18 +177,273 @@ function fadeIn(selector, opts = {}) {
   if (typeof gsap === 'undefined') return;
   const elementos = typeof selector === 'string' ? document.querySelectorAll(selector) : selector;
   if (!elementos || !elementos.length) return;
+
+  const reducirMovimiento = movimientoReducidoActivo();
+  const { y = 8, duration = 0.26, stagger = 0.04, ...resto } = opts;
+  gsap.killTweensOf(elementos);
   gsap.fromTo(elementos,
-    { opacity: 0, y: 14 },
-    { opacity: 1, y: 0, duration: 0.45, ease: 'power2.out', stagger: 0.06, ...opts }
+    { opacity: 0, y: reducirMovimiento ? 0 : y },
+    {
+      opacity: 1,
+      y: 0,
+      duration: reducirMovimiento ? 0.18 : duration,
+      ease: 'power2.out',
+      stagger: reducirMovimiento ? 0 : stagger,
+      clearProps: 'transform,opacity',
+      ...resto,
+    }
   );
 }
 
+const loginPantalla = document.getElementById('pantalla-login');
+const loginComposition = loginPantalla.querySelector('.login-composition');
+const loginBrand = document.getElementById('login-brand-trigger');
+const loginCard = document.getElementById('login-card');
+const loginEmail = document.getElementById('correo');
+const loginPassword = document.getElementById('contrasena');
+const loginSubmit = document.getElementById('login-submit');
+const loginError = document.getElementById('mensaje-error');
+const passwordToggle = document.getElementById('toggle-contrasena');
+let loginRevelado = false;
+let loginTimeline = null;
+
+function movimientoReducidoActivo() {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+function calcularOffsetInicialLogin() {
+  const estilos = window.getComputedStyle(loginComposition);
+  const gap = Number.parseFloat(estilos.rowGap || estilos.gap) || 0;
+  return (loginCard.offsetHeight + gap) / 2;
+}
+
+function posicionarLoginInicial() {
+  if (loginRevelado || !loginPantalla.classList.contains('activa')) return;
+
+  const offset = calcularOffsetInicialLogin();
+  if (typeof gsap !== 'undefined') {
+    gsap.set(loginBrand, { y: offset, opacity: 1, scale: 1 });
+    gsap.set(loginCard, { autoAlpha: 0, y: 30, scale: 0.97 });
+  } else {
+    loginBrand.style.transform = `translateY(${offset}px)`;
+    loginBrand.style.opacity = '1';
+    loginCard.style.opacity = '0';
+    loginCard.style.visibility = 'hidden';
+  }
+}
+
+function prepararLogin() {
+  if (loginTimeline) {
+    loginTimeline.kill();
+    loginTimeline = null;
+  }
+
+  loginRevelado = false;
+  loginPantalla.classList.remove('login-revealed');
+  loginBrand.setAttribute('aria-expanded', 'false');
+  loginBrand.setAttribute('aria-label', 'Mostrar formulario de inicio de sesión');
+  loginCard.setAttribute('aria-hidden', 'true');
+  passwordToggle.setAttribute('aria-pressed', 'false');
+  passwordToggle.setAttribute('aria-label', 'Mostrar contraseña');
+  passwordToggle.querySelector('.material-symbols-outlined').textContent = 'visibility';
+  loginPassword.type = 'password';
+
+  requestAnimationFrame(() => {
+    posicionarLoginInicial();
+    if (typeof gsap !== 'undefined' && !movimientoReducidoActivo()) {
+      gsap.fromTo(
+        loginBrand,
+        { opacity: 0, scale: 0.97 },
+        { opacity: 1, scale: 1, duration: 0.58, ease: 'power2.out', overwrite: 'auto' }
+      );
+    }
+  });
+}
+
+function revelarLogin({ focus = true, immediate = false } = {}) {
+  if (loginRevelado) {
+    if (focus) loginEmail.focus({ preventScroll: true });
+    return;
+  }
+
+  loginRevelado = true;
+  loginPantalla.classList.add('login-revealed');
+  loginBrand.setAttribute('aria-expanded', 'true');
+  loginBrand.setAttribute('aria-label', 'Ocultar formulario de inicio de sesión');
+  loginCard.setAttribute('aria-hidden', 'false');
+
+  const enfocarCorreo = () => {
+    loginCard.style.willChange = 'auto';
+    loginBrand.style.willChange = 'auto';
+    if (focus) loginEmail.focus({ preventScroll: true });
+  };
+
+  if (typeof gsap === 'undefined') {
+    loginBrand.style.transform = 'translateY(0)';
+    loginCard.style.visibility = 'visible';
+    loginCard.style.opacity = '1';
+    loginCard.style.transform = 'translateY(0) scale(1)';
+    enfocarCorreo();
+    return;
+  }
+
+  if (loginTimeline) loginTimeline.kill();
+  gsap.killTweensOf([loginBrand, loginCard]);
+
+  if (immediate || movimientoReducidoActivo()) {
+    gsap.set(loginBrand, { y: 0, opacity: 1, scale: 1 });
+    gsap.to(loginCard, {
+      autoAlpha: 1,
+      y: 0,
+      scale: 1,
+      duration: immediate ? 0 : 0.18,
+      ease: 'power2.out',
+      onComplete: enfocarCorreo,
+    });
+    return;
+  }
+
+  loginTimeline = gsap.timeline();
+  loginTimeline
+    .to(loginBrand, {
+      y: 0,
+      duration: 0.78,
+      ease: 'power3.out',
+    })
+    .to(loginCard, {
+      autoAlpha: 1,
+      y: 0,
+      scale: 1,
+      duration: 0.64,
+      ease: 'power3.out',
+      onComplete: enfocarCorreo,
+    }, '-=0.42');
+}
+
+function cerrarLogin({ immediate = false } = {}) {
+  if (!loginRevelado) return;
+
+  loginRevelado = false;
+  loginBrand.setAttribute('aria-expanded', 'false');
+  loginBrand.setAttribute('aria-label', 'Mostrar formulario de inicio de sesión');
+  loginCard.setAttribute('aria-hidden', 'true');
+
+  if (loginCard.contains(document.activeElement)) {
+    loginBrand.focus({ preventScroll: true });
+  }
+
+  const offset = calcularOffsetInicialLogin();
+  const finalizarCierre = () => {
+    loginPantalla.classList.remove('login-revealed');
+    loginCard.style.willChange = 'auto';
+    loginBrand.style.willChange = 'auto';
+    loginTimeline = null;
+  };
+
+  if (typeof gsap === 'undefined') {
+    loginCard.style.opacity = '0';
+    loginCard.style.visibility = 'hidden';
+    loginCard.style.transform = 'translateY(30px) scale(0.97)';
+    loginBrand.style.transform = `translateY(${offset}px)`;
+    finalizarCierre();
+    return;
+  }
+
+  if (loginTimeline) loginTimeline.kill();
+  gsap.killTweensOf([loginBrand, loginCard]);
+
+  if (immediate || movimientoReducidoActivo()) {
+    gsap.to(loginCard, {
+      autoAlpha: 0,
+      y: 30,
+      scale: 0.97,
+      duration: immediate ? 0 : 0.18,
+      ease: 'power2.out',
+      onComplete: () => {
+        gsap.set(loginBrand, { y: offset, opacity: 1, scale: 1 });
+        finalizarCierre();
+      },
+    });
+    return;
+  }
+
+  loginTimeline = gsap.timeline({ onComplete: finalizarCierre });
+  loginTimeline
+    .to(loginCard, {
+      autoAlpha: 0,
+      y: 30,
+      scale: 0.97,
+      duration: 0.42,
+      ease: 'power3.out',
+    })
+    .to(loginBrand, {
+      y: offset,
+      duration: 0.62,
+      ease: 'power3.out',
+    }, '-=0.18');
+}
+
+function alternarLogin() {
+  if (loginRevelado) cerrarLogin();
+  else revelarLogin();
+}
+
+function setLoginLoading(cargando) {
+  loginSubmit.disabled = cargando;
+  loginSubmit.setAttribute('aria-busy', String(cargando));
+  loginSubmit.innerHTML = cargando
+    ? '<span class="loading-spinner" aria-hidden="true"></span><span class="login-submit-label">Iniciando sesión…</span>'
+    : '<span class="login-submit-label">Iniciar sesión</span><span class="material-symbols-outlined login-submit-arrow" aria-hidden="true">arrow_forward</span>';
+}
+
+loginBrand.addEventListener('click', alternarLogin);
+
+loginBrand.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  event.preventDefault();
+  alternarLogin();
+});
+
+passwordToggle.addEventListener('click', () => {
+  const mostrar = loginPassword.type === 'password';
+  loginPassword.type = mostrar ? 'text' : 'password';
+  passwordToggle.setAttribute('aria-pressed', String(mostrar));
+  passwordToggle.setAttribute('aria-label', mostrar ? 'Ocultar contraseña' : 'Mostrar contraseña');
+  passwordToggle.querySelector('.material-symbols-outlined').textContent = mostrar ? 'visibility_off' : 'visibility';
+  loginPassword.focus({ preventScroll: true });
+});
+
+[loginEmail, loginPassword].forEach(input => {
+  input.addEventListener('input', () => {
+    if (loginError.textContent) loginError.textContent = '';
+  });
+});
+
+window.addEventListener('resize', () => {
+  if (loginRevelado) {
+    if (typeof gsap !== 'undefined') {
+      gsap.set(loginBrand, { y: 0 });
+      gsap.set(loginCard, { y: 0, scale: 1 });
+    }
+    return;
+  }
+  posicionarLoginInicial();
+});
+
 function mostrarPantalla(id) {
+  document.querySelectorAll('.pantalla.activa .sidebar.sidebar-expanded').forEach(sidebar => {
+    actualizarNavegacion(sidebar, false, true);
+  });
   document.querySelectorAll('.pantalla').forEach(p => p.classList.remove('activa'));
   const pantalla = document.getElementById(id);
   pantalla.classList.add('activa');
 
-  document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('nav-link-active'));
+  if (id === 'pantalla-login') prepararLogin();
+
+  document.querySelectorAll('.nav-link').forEach(l => {
+    l.classList.remove('nav-link-active');
+    l.removeAttribute('aria-current');
+  });
   const mapa = {
     'pantalla-paciente': 'nav-nueva',
     'pantalla-sintomas': 'nav-nueva',
@@ -138,61 +453,114 @@ function mostrarPantalla(id) {
   };
   const activo = mapa[id];
   if (activo) {
-    document.querySelectorAll(`.${activo}`).forEach(l => l.classList.add('nav-link-active'));
+    document.querySelectorAll(`.${activo}`).forEach(l => {
+      l.classList.add('nav-link-active');
+      l.setAttribute('aria-current', 'page');
+    });
   }
 
-  if (typeof gsap !== 'undefined') {
-    const titulo = pantalla.querySelector('h1');
-    if (titulo) fadeIn(titulo, { y: -10, stagger: 0 });
+  requestAnimationFrame(() => animarPantallaPremium(pantalla));
+}
+
+function animarPantallaPremium(pantalla) {
+  if (typeof gsap === 'undefined' || !pantalla || pantalla.id === 'pantalla-login') return;
+
+  const activadaPorTeclado = performance.now() - ultimaActivacionTeclado < 900;
+  const reducirMovimiento = movimientoReducidoActivo() || activadaPorTeclado;
+  const primeraEntrada = pantalla.dataset.entradaAnimada !== 'true';
+
+  if (primeraEntrada) {
+    const chrome = pantalla.querySelectorAll('.sidebar-brand, .nav-link, .topbar-location, .topbar-account');
+    if (chrome.length) {
+      gsap.fromTo(chrome,
+        { opacity: 0, x: reducirMovimiento ? 0 : -6 },
+        {
+          opacity: 1,
+          x: 0,
+          duration: reducirMovimiento ? 0.16 : 0.24,
+          ease: 'power2.out',
+          stagger: reducirMovimiento ? 0 : 0.035,
+          clearProps: 'transform,opacity',
+        }
+      );
+    }
+    pantalla.dataset.entradaAnimada = 'true';
+  }
+
+  const bloques = Array.from(pantalla.querySelectorAll('.shell-content > div > *'))
+    .filter(elemento => getComputedStyle(elemento).display !== 'none');
+
+  if (bloques.length) {
+    gsap.killTweensOf(bloques);
+    gsap.fromTo(bloques,
+      { opacity: 0, y: reducirMovimiento ? 0 : 12 },
+      {
+        opacity: 1,
+        y: 0,
+        duration: reducirMovimiento ? 0.16 : 0.28,
+        ease: 'power2.out',
+        stagger: reducirMovimiento ? 0 : 0.035,
+        clearProps: 'transform,opacity',
+      }
+    );
   }
 }
 
-function logoSVG() {
-  return `<svg class="w-7 h-7 text-primary" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M12 2L3 6v6c0 5 4 9 9 10 5-1 9-5 9-10V6l-9-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-    <path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-  </svg>`;
-}
-
-function sidebarHTML(rol) {
+function sidebarHTML(rol, contexto = 'app') {
   const esAdmin = rol === 'administrador';
   const esMedico = rol === 'medico';
   const adminLink = (esAdmin || esMedico)
     ? `<span class="nav-link nav-admin" id="nav-admin-link" role="button" tabindex="0" aria-label="${esAdmin ? 'Administración' : 'Equipo'}">
-         <span class="material-symbols-outlined mr-md" aria-hidden="true">${esAdmin ? 'admin_panel_settings' : 'groups'}</span>
-         <span class="font-label-md text-label-md">${esAdmin ? 'Administración' : 'Equipo'}</span>
+         <span class="nav-link-icon material-symbols-outlined" aria-hidden="true">${esAdmin ? 'admin_panel_settings' : 'groups'}</span>
+         <span class="nav-link-label">${esAdmin ? 'Administración' : 'Equipo'}</span>
        </span>`
     : '';
 
   return `
-    <div class="h-16 flex items-center px-6 gap-sm border-b border-outline-variant">
-      ${logoSVG()}
-      <span class="font-headline-sm text-headline-sm text-primary">SaludXpert</span>
+    <div class="sidebar-brand">
+      <img class="sidebar-brand-wordmark" src="assets/brand/saludxpert-wordmark.png" alt="SaludXpert" draggable="false">
+      <button class="sidebar-brand-toggle" type="button" aria-expanded="false" aria-controls="sidebar-nav-${contexto}" aria-label="Abrir navegación">
+        <img class="sidebar-brand-mark" src="assets/brand/saludxpert-mark.png" alt="" aria-hidden="true" draggable="false">
+      </button>
     </div>
-    <nav class="flex-1 flex flex-col gap-xs px-md pt-lg" aria-label="Navegación principal">
+    <nav class="sidebar-nav flex-1 flex flex-col" id="sidebar-nav-${contexto}" aria-label="Navegación principal" aria-hidden="true">
       <span class="nav-link nav-nueva" id="nav-nueva-link" role="button" tabindex="0" aria-label="Nueva Consulta">
-        <span class="material-symbols-outlined mr-md" aria-hidden="true">add_circle</span>
-        <span class="font-label-md text-label-md">Nueva Consulta</span>
+        <span class="nav-link-icon material-symbols-outlined" aria-hidden="true">add_circle</span>
+        <span class="nav-link-label">Nueva consulta</span>
       </span>
       <span class="nav-link nav-historial" id="nav-historial-link" role="button" tabindex="0" aria-label="Historial">
-        <span class="material-symbols-outlined mr-md" aria-hidden="true">history</span>
-        <span class="font-label-md text-label-md">Historial</span>
+        <span class="nav-link-icon material-symbols-outlined" aria-hidden="true">history</span>
+        <span class="nav-link-label">Historial</span>
       </span>
       ${adminLink}
+      <div class="theme-control">
+        <span class="theme-control-label">Aspecto visual</span>
+        <div class="theme-switcher" role="radiogroup" aria-label="Apariencia">
+          <span class="theme-switch-indicator" aria-hidden="true"></span>
+          <button class="theme-option" type="button" role="radio" data-theme-value="light" aria-label="Activar modo día" aria-checked="false">
+            <span class="material-symbols-outlined" aria-hidden="true">light_mode</span>
+          </button>
+          <button class="theme-option" type="button" role="radio" data-theme-value="dark" aria-label="Activar modo noche" aria-checked="false">
+            <span class="material-symbols-outlined" aria-hidden="true">dark_mode</span>
+          </button>
+        </div>
+      </div>
     </nav>
   `;
 }
 
 function topbarHTML() {
   return `
-    <span class="text-label-md font-label-md text-on-surface-variant">Centro de Salud Salcajá</span>
-    <div class="flex items-center gap-md">
-      <div class="text-right">
+    <span class="topbar-location">Centro de Salud Salcajá</span>
+    <div class="topbar-account">
+      <span class="topbar-avatar material-symbols-outlined" aria-hidden="true">person</span>
+      <div class="topbar-user-copy text-right">
         <p class="text-label-md font-label-md text-on-surface leading-none topbar-usuario-nombre"></p>
         <p class="text-xs text-on-secondary-container topbar-usuario-rol"></p>
       </div>
-      <button class="btn-logout flex items-center text-on-surface-variant hover:text-error transition-colors" title="Cerrar sesión">
-        <span class="material-symbols-outlined">logout</span>
+      <span class="topbar-usuario-compacto"></span>
+      <button class="btn-logout" title="Cerrar sesión" aria-label="Cerrar sesión">
+        <span class="material-symbols-outlined" aria-hidden="true">logout</span>
       </button>
     </div>
   `;
@@ -203,22 +571,121 @@ function inyectarShell(rol) {
   pantallas.forEach(p => {
     const sidebar = document.getElementById(`sidebar-${p}`);
     const topbar = document.getElementById(`topbar-${p}`);
-    if (sidebar) sidebar.innerHTML = sidebarHTML(rol);
+    if (sidebar) sidebar.innerHTML = sidebarHTML(rol, p);
     if (topbar) topbar.innerHTML = topbarHTML();
   });
   registrarEventosShell();
+  actualizarControlesTema();
 }
 
 function activarConTeclado(el) {
   el.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
+      ultimaActivacionTeclado = performance.now();
       el.click();
     }
   });
 }
 
+function actualizarNavegacion(sidebar, abierta, instantanea = false) {
+  if (!sidebar) return;
+
+  const toggle = sidebar.querySelector('.sidebar-brand-toggle');
+  const menu = sidebar.querySelector('.sidebar-nav');
+  const wordmark = sidebar.querySelector('.sidebar-brand-wordmark');
+  const rail = Number.parseFloat(getComputedStyle(sidebar).getPropertyValue('--sidebar-rail')) || 76;
+  const posicionCerrada = -(sidebar.offsetWidth - rail);
+  const altoMarca = sidebar.querySelector('.sidebar-brand')?.offsetHeight || 68;
+  const recorteCerrado = Math.max(0, sidebar.scrollHeight - altoMarca);
+  const radio = Number.parseFloat(getComputedStyle(sidebar).borderRadius) || 22;
+  const clipAbierto = `inset(0px 0px 0px 0px round ${radio}px)`;
+  const clipCerrado = `inset(0px 0px ${recorteCerrado}px 0px round ${radio}px)`;
+  const reducirMovimiento = movimientoReducidoActivo();
+
+  sidebar.classList.toggle('sidebar-expanded', abierta);
+  toggle?.setAttribute('aria-expanded', String(abierta));
+  toggle?.setAttribute('aria-label', abierta ? 'Cerrar navegación' : 'Abrir navegación');
+  menu?.setAttribute('aria-hidden', String(!abierta));
+  if (menu) menu.inert = !abierta;
+
+  if (typeof gsap === 'undefined' || reducirMovimiento || instantanea) {
+    if (typeof gsap !== 'undefined') {
+      gsap.set(sidebar, { x: abierta ? 0 : posicionCerrada, clipPath: abierta ? clipAbierto : clipCerrado });
+      gsap.set([menu, wordmark], { opacity: abierta ? 1 : 0, x: abierta ? 0 : -8 });
+    } else {
+      sidebar.style.transform = `translateX(${abierta ? 0 : posicionCerrada}px)`;
+      sidebar.style.clipPath = abierta ? clipAbierto : clipCerrado;
+      [menu, wordmark].forEach(elemento => {
+        if (!elemento) return;
+        elemento.style.opacity = abierta ? '1' : '0';
+        elemento.style.transform = `translateX(${abierta ? 0 : -8}px)`;
+      });
+    }
+    return;
+  }
+
+  gsap.killTweensOf([sidebar, menu, wordmark]);
+  gsap.to(sidebar, {
+    x: abierta ? 0 : posicionCerrada,
+    clipPath: abierta ? clipAbierto : clipCerrado,
+    duration: 0.26,
+    ease: 'power3.out',
+    overwrite: 'auto',
+  });
+  gsap.to([menu, wordmark], {
+    opacity: abierta ? 1 : 0,
+    x: abierta ? 0 : -8,
+    duration: abierta ? 0.2 : 0.14,
+    delay: abierta ? 0.04 : 0,
+    ease: 'power2.out',
+    overwrite: 'auto',
+  });
+}
+
+function cerrarNavegacionActiva(instantanea = false) {
+  document.querySelectorAll('.pantalla.activa .sidebar.sidebar-expanded').forEach(sidebar => {
+    actualizarNavegacion(sidebar, false, instantanea);
+  });
+}
+
+function cerrarNavegacionAlTocarFuera(evento) {
+  const sidebar = document.querySelector('.pantalla.activa .sidebar.sidebar-expanded');
+  if (sidebar && !sidebar.contains(evento.target)) actualizarNavegacion(sidebar, false);
+}
+
+function cerrarNavegacionConEscape(evento) {
+  if (evento.key !== 'Escape') return;
+  const sidebar = document.querySelector('.pantalla.activa .sidebar.sidebar-expanded');
+  if (!sidebar) return;
+  const toggle = sidebar.querySelector('.sidebar-brand-toggle');
+  actualizarNavegacion(sidebar, false);
+  toggle?.focus({ preventScroll: true });
+}
+
+window.addEventListener('resize', () => {
+  requestAnimationFrame(() => {
+    document.querySelectorAll('.pantalla.activa .sidebar:not(.sidebar-expanded)').forEach(sidebar => {
+      actualizarNavegacion(sidebar, false, true);
+    });
+  });
+});
+
 function registrarEventosShell() {
+  document.querySelectorAll('.sidebar-nav').forEach(menu => { menu.inert = true; });
+
+  document.querySelectorAll('.sidebar-brand-toggle').forEach(toggle => {
+    toggle.addEventListener('click', () => {
+      const sidebar = toggle.closest('.sidebar');
+      actualizarNavegacion(sidebar, !sidebar.classList.contains('sidebar-expanded'));
+    });
+  });
+
+  document.removeEventListener('pointerdown', cerrarNavegacionAlTocarFuera);
+  document.addEventListener('pointerdown', cerrarNavegacionAlTocarFuera);
+  document.removeEventListener('keydown', cerrarNavegacionConEscape);
+  document.addEventListener('keydown', cerrarNavegacionConEscape);
+
   document.querySelectorAll('#nav-nueva-link').forEach(el => {
     el.addEventListener('click', reiniciarConsulta);
     activarConTeclado(el);
@@ -238,6 +705,17 @@ function registrarEventosShell() {
       mostrarPantalla('pantalla-admin');
     });
     activarConTeclado(el);
+  });
+
+  document.querySelectorAll('.theme-option').forEach(boton => {
+    boton.addEventListener('click', () => aplicarTema(boton.dataset.themeValue));
+    boton.addEventListener('keydown', evento => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(evento.key)) return;
+      evento.preventDefault();
+      const tema = evento.key === 'ArrowLeft' || evento.key === 'Home' ? 'light' : 'dark';
+      aplicarTema(tema);
+      boton.closest('.theme-switcher')?.querySelector(`[data-theme-value="${tema}"]`)?.focus();
+    });
   });
 
   document.querySelectorAll('.btn-logout').forEach(btn =>
@@ -267,6 +745,17 @@ function actualizarTopbarUsuario() {
   });
   document.querySelectorAll('.topbar-usuario-rol').forEach(el => {
     el.textContent = usuarioActual ? capitalizar(usuarioActual.rol) : '';
+  });
+  const rolesCompactos = {
+    administrador: 'Admin',
+    medico: 'Dr',
+    enfermeria: 'ENF',
+  };
+  const rolCompacto = usuarioActual
+    ? (rolesCompactos[usuarioActual.rol] || capitalizar(usuarioActual.rol))
+    : '';
+  document.querySelectorAll('.topbar-usuario-compacto').forEach(el => {
+    el.textContent = rolCompacto;
   });
 }
 
@@ -426,8 +915,7 @@ document.getElementById('form-nueva-contrasena').addEventListener('submit', asyn
 });
 
 (async function iniciarApp() {
-  fadeIn('#pantalla-login h1', { y: -10, stagger: 0 });
-  fadeIn('#form-login', { delay: 0.1, stagger: 0 });
+  prepararLogin();
 
   const manejadoPorEnlaceEspecial = await manejarEnlaceEspecial();
   if (!manejadoPorEnlaceEspecial) {
@@ -442,23 +930,30 @@ document.getElementById('form-login').addEventListener('submit', async (e) => {
   const contrasena = document.getElementById('contrasena').value;
   const mensajeError = document.getElementById('mensaje-error');
   mensajeError.textContent = '';
+  setLoginLoading(true);
 
-  const { data, error } = await supabaseClient.auth.signInWithPassword({
-    email: correo,
-    password: contrasena,
-  });
+  try {
+    const { error } = await supabaseClient.auth.signInWithPassword({
+      email: correo,
+      password: contrasena,
+    });
 
-  if (error) {
-    mensajeError.textContent = 'Correo o contraseña incorrectos.';
-    return;
+    if (error) {
+      mensajeError.textContent = 'Correo o contraseña incorrectos.';
+      return;
+    }
+
+    if (!(await cargarUsuarioActual())) {
+      if (!mensajeError.textContent) mensajeError.textContent = 'No se pudo cargar tu perfil. Revisa tu conexión e intenta de nuevo.';
+      return;
+    }
+    inyectarShell(usuarioActual.rol);
+    irAPantallaPaciente();
+  } catch {
+    mensajeError.textContent = 'No se pudo iniciar sesión. Revisa tu conexión e intenta de nuevo.';
+  } finally {
+    setLoginLoading(false);
   }
-
-  if (!(await cargarUsuarioActual())) {
-    if (!mensajeError.textContent) mensajeError.textContent = 'No se pudo cargar tu perfil. Revisa tu conexión e intenta de nuevo.';
-    return;
-  }
-  inyectarShell(usuarioActual.rol);
-  irAPantallaPaciente();
 });
 
 document.getElementById('link-recuperar').addEventListener('click', async () => {
@@ -485,7 +980,7 @@ function entrarModoEdicionPaciente(p) {
   document.getElementById('paciente-medicamentos').value = p.medicamentos_actuales || '';
 
   document.getElementById('texto-form-paciente').textContent = `Editando a ${p.nombre}`;
-  document.getElementById('btn-guardar-paciente').textContent = 'Guardar cambios y continuar';
+  document.querySelector('#btn-guardar-paciente .shiny-cta-content').textContent = 'Guardar cambios y continuar';
   document.getElementById('btn-cancelar-edicion-paciente').style.display = '';
 
   form.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -497,7 +992,7 @@ function salirModoEdicionPaciente() {
   form.reset();
 
   document.getElementById('texto-form-paciente').textContent = 'o registre uno nuevo';
-  document.getElementById('btn-guardar-paciente').textContent = 'Registrar y continuar';
+  document.querySelector('#btn-guardar-paciente .shiny-cta-content').textContent = 'Registrar y continuar';
   document.getElementById('btn-cancelar-edicion-paciente').style.display = 'none';
 }
 
@@ -638,7 +1133,7 @@ document.getElementById('btn-analizar').addEventListener('click', async () => {
   const btn = document.getElementById('btn-analizar');
   btn.disabled = true;
   btn.classList.add('btn-loading');
-  btn.innerHTML = `<span class="loading-spinner"></span> Analizando...`;
+  btn.innerHTML = `<span class="shiny-cta-content"><span class="loading-spinner"></span><span>Analizando...</span></span>`;
 
   try {
     const resultado = await apiFetch('/api/diagnosticar', {
@@ -655,7 +1150,7 @@ document.getElementById('btn-analizar').addEventListener('click', async () => {
   } finally {
     btn.disabled = false;
     btn.classList.remove('btn-loading');
-    btn.innerHTML = `Analizar Síntomas <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>`;
+    btn.innerHTML = `<span class="shiny-cta-content">Analizar Síntomas <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span></span>`;
   }
 });
 
@@ -682,6 +1177,19 @@ function mostrarResultado(resultado) {
       <div class="barra-confianza-fill" style="width:${principal.confianza}%"></div>
     </div>
   `;
+
+  const barraConfianza = document.querySelector('.barra-confianza-fill');
+  if (barraConfianza && typeof gsap !== 'undefined' && !movimientoReducidoActivo()) {
+    gsap.fromTo(barraConfianza,
+      { scaleX: 0, transformOrigin: 'left center' },
+      {
+        scaleX: 1,
+        duration: 0.7,
+        ease: 'power3.out',
+        clearProps: 'transform',
+      }
+    );
+  }
 
   const alternativosDiv = document.getElementById('resultados-alternativos');
   alternativosDiv.innerHTML = '';

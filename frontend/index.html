@@ -8,10 +8,20 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#004d99">
+<script>
+  try {
+    const savedTheme = localStorage.getItem('saludxpert-theme');
+    const initialTheme = savedTheme === 'dark' ? 'dark' : 'light';
+    document.documentElement.dataset.theme = initialTheme;
+    document.documentElement.style.colorScheme = initialTheme;
+  } catch {
+    document.documentElement.dataset.theme = 'light';
+  }
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="tailwind.css">
+<link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-surface-container font-body-md text-on-surface">
 
@@ -30,44 +40,66 @@
 
 <!-- ============ LOGIN ============ -->
 <div id="pantalla-login" class="pantalla activa">
-  <main class="flex min-h-screen items-center justify-center p-margin-mobile">
-    <div class="w-full max-w-md p-10 bg-surface-container-lowest rounded-xl shadow-lg flex flex-col items-center">
-      <div class="mb-8 flex flex-col items-center">
-        <svg class="w-16 h-16 mb-3 text-primary" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 2L3 6v6c0 5 4 9 9 10 5-1 9-5 9-10V6l-9-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-          <path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>
-        <h1 class="text-display-lg text-primary text-center">SaludXpert</h1>
-      </div>
-      <form id="form-login" class="w-full flex flex-col gap-6">
-        <div class="flex flex-col gap-2">
-          <label class="text-label-md text-on-surface" for="correo">Correo electrónico</label>
-          <div class="relative">
-            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">mail</span>
-            <input class="w-full pl-10 pr-4 py-3 bg-surface rounded-lg border border-outline-variant focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-body-lg text-on-surface transition-all" id="correo" placeholder="usuario@salud.gob.gt" required type="email">
-          </div>
+  <picture class="login-background" aria-hidden="true">
+    <source media="(max-width: 640px), (max-width: 1024px) and (orientation: portrait)" srcset="assets/login/background-mobile.jpeg">
+    <img src="assets/login/background-desktop.jpeg" alt="" fetchpriority="high" decoding="async">
+  </picture>
+  <div class="login-shade" aria-hidden="true"></div>
+
+  <main class="login-stage">
+    <section class="login-composition" aria-label="Acceso a SaludXpert">
+      <button
+        id="login-brand-trigger"
+        class="login-brand"
+        type="button"
+        aria-label="Mostrar formulario de inicio de sesión"
+        aria-controls="login-card"
+        aria-expanded="false"
+      >
+        <img src="assets/login/saludxpert-logo-transparent.png" alt="SaludXpert" draggable="false">
+        <span class="login-brand-hint" aria-hidden="true">Toca para ingresar</span>
+      </button>
+
+      <div id="login-card" class="login-card" aria-hidden="true">
+        <div class="login-card-highlight" aria-hidden="true"></div>
+        <div class="login-card-content">
+          <header class="login-card-header">
+            <p class="login-eyebrow">Acceso clínico seguro</p>
+            <h1>Centro de Salud de Salcajá</h1>
+          </header>
+
+          <form id="form-login" class="login-form">
+            <div class="login-field">
+              <label class="sr-only" for="correo">Correo electrónico</label>
+              <span class="material-symbols-outlined login-field-icon" aria-hidden="true">mail</span>
+              <input id="correo" name="email" placeholder="Correo electrónico" required type="email" autocomplete="email" inputmode="email">
+            </div>
+
+            <div class="login-field">
+              <label class="sr-only" for="contrasena">Contraseña</label>
+              <span class="material-symbols-outlined login-field-icon" aria-hidden="true">lock</span>
+              <input id="contrasena" name="password" placeholder="Contraseña" required type="password" autocomplete="current-password">
+              <button id="toggle-contrasena" class="login-password-toggle" type="button" aria-label="Mostrar contraseña" aria-pressed="false">
+                <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
+              </button>
+            </div>
+
+            <p id="mensaje-error" class="mensaje-error" role="alert" aria-live="polite"></p>
+
+            <button id="login-submit" class="login-submit" type="submit">
+              <span class="login-submit-label">Iniciar sesión</span>
+              <span class="material-symbols-outlined login-submit-arrow" aria-hidden="true">arrow_forward</span>
+            </button>
+
+            <div class="login-recovery-row">
+              <span aria-hidden="true"></span>
+              <button class="link-recuperar" id="link-recuperar" type="button">¿Olvidaste tu contraseña?</button>
+              <span aria-hidden="true"></span>
+            </div>
+          </form>
         </div>
-        <div class="flex flex-col gap-2">
-          <label class="text-label-md text-on-surface" for="contrasena">Contraseña</label>
-          <div class="relative">
-            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">lock</span>
-            <input class="w-full pl-10 pr-4 py-3 bg-surface rounded-lg border border-outline-variant focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-body-lg text-on-surface transition-all" id="contrasena" placeholder="••••••••" required type="password">
-          </div>
-        </div>
-        <button class="w-full py-4 mt-2 bg-primary text-on-primary text-headline-sm rounded-lg hover:bg-on-primary-fixed-variant transition-colors shadow-sm hover:shadow-md flex items-center justify-center gap-2 group" type="submit">
-          Iniciar Sesión
-          <span class="material-symbols-outlined transition-transform group-hover:translate-x-1">arrow_forward</span>
-        </button>
-        <p class="link-recuperar text-center" id="link-recuperar">¿Olvidaste tu contraseña?</p>
-      </form>
-      <p id="mensaje-error" class="mensaje-error text-center"></p>
-      <div class="mt-8 text-center border-t border-outline-variant pt-6 w-full">
-        <p class="text-body-md text-on-surface-variant flex items-center justify-center gap-2">
-          <span class="material-symbols-outlined text-sm">location_on</span>
-          Centro de Salud de Salcajá
-        </p>
       </div>
-    </div>
+    </section>
   </main>
 </div>
 
@@ -167,7 +199,9 @@
               <input id="paciente-medicamentos" type="text" class="w-full px-4 py-3 bg-surface rounded-lg border border-outline-variant focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-body-lg text-on-surface transition-all">
             </div>
             <div class="flex items-center gap-md mt-sm">
-              <button type="submit" id="btn-guardar-paciente" class="h-12 px-lg bg-primary text-on-primary rounded font-label-md text-label-md shadow-sm hover:shadow-md transition-shadow">Registrar y continuar</button>
+              <button type="submit" id="btn-guardar-paciente" class="shiny-cta h-12 px-lg bg-primary text-on-primary rounded font-label-md text-label-md shadow-sm hover:shadow-md transition-shadow">
+                <span class="shiny-cta-content">Registrar y continuar</span>
+              </button>
               <button type="button" id="btn-cancelar-edicion-paciente" class="link-secundario" style="display:none;">Cancelar edición</button>
             </div>
           </form>
@@ -228,9 +262,11 @@
               <span class="material-symbols-outlined text-primary">list_alt</span>
               <span class="text-sm md:text-headline-sm font-headline-sm text-on-surface">Listo para analizar</span>
             </div>
-            <button id="btn-analizar" class="h-14 px-xl bg-primary text-on-primary rounded-lg text-headline-sm font-headline-sm shadow-md hover:bg-primary/90 transition-colors flex items-center gap-sm group">
-              Analizar Síntomas
-              <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+            <button id="btn-analizar" class="shiny-cta h-14 px-xl bg-primary text-on-primary rounded-lg text-headline-sm font-headline-sm shadow-md hover:bg-primary/90 transition-colors flex items-center gap-sm group">
+              <span class="shiny-cta-content">
+                Analizar Síntomas
+                <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+              </span>
             </button>
           </div>
         </div>
@@ -280,9 +316,11 @@
               <span class="material-symbols-outlined text-[20px]">close</span>
               Descartar Sugerencia
             </button>
-            <button id="btn-confirmar" class="h-12 px-lg rounded flex items-center justify-center gap-sm font-label-md text-label-md bg-tertiary text-on-tertiary hover:bg-tertiary-container hover:text-on-tertiary-container shadow-md hover:shadow-lg transition-all">
-              <span class="material-symbols-outlined text-[20px]">check</span>
-              Confirmar Diagnóstico
+            <button id="btn-confirmar" class="shiny-cta h-12 px-lg rounded flex items-center justify-center gap-sm font-label-md text-label-md bg-tertiary text-on-tertiary hover:bg-tertiary-container hover:text-on-tertiary-container shadow-md hover:shadow-lg transition-all">
+              <span class="shiny-cta-content">
+                <span class="material-symbols-outlined text-[20px]">check</span>
+                Confirmar Diagnóstico
+              </span>
             </button>
           </div>
 
@@ -328,9 +366,11 @@
               <h1 class="font-display-lg text-display-lg text-on-surface leading-tight" id="titulo-panel-admin">Panel de Administración</h1>
               <p class="font-body-lg text-body-lg text-on-surface-variant" id="subtitulo-panel-admin">Gestión de usuarios y métricas del sistema.</p>
             </div>
-            <button id="btn-agregar-usuario" class="h-12 px-lg bg-primary text-on-primary rounded font-label-md text-label-md flex items-center justify-center gap-sm shadow-sm hover:shadow-md transition-shadow">
-              <span class="material-symbols-outlined text-[18px]">add</span>
-              Agregar Usuario
+            <button id="btn-agregar-usuario" class="shiny-cta h-12 px-lg bg-primary text-on-primary rounded font-label-md text-label-md flex items-center justify-center gap-sm shadow-sm hover:shadow-md transition-shadow">
+              <span class="shiny-cta-content">
+                <span class="material-symbols-outlined text-[18px]">add</span>
+                Agregar Usuario
+              </span>
             </button>
           </div>
 
