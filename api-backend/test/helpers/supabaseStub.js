@@ -40,6 +40,7 @@ function builderFor(queues, table) {
     or: () => builder,
     insert: () => builder,
     update: () => builder,
+    delete: () => builder,
     single: () => Promise.resolve(result),
     maybeSingle: () => Promise.resolve(result),
     then: (resolve, reject) => Promise.resolve(result).then(resolve, reject),

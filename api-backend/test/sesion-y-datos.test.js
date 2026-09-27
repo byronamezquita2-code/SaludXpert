@@ -236,3 +236,58 @@ test('validarDatosPaciente valida la fecha de nacimiento', () => {
     );
   }
 });
+
+test('DELETE /api/usuarios/:id exige rol administrador', async () => {
+  const otro = '22222222-2222-4222-8222-222222222222';
+  const app = crearApp({ tables: { usuarios: usuario({ rol: 'medico' }) } });
+  const res = await request(app).delete(`/api/usuarios/${otro}`).set(...AUTH);
+
+  assert.equal(res.status, 403);
+});
+
+test('un administrador no puede eliminar su propia cuenta', async () => {
+  const app = crearApp({ tables: { usuarios: usuario({ rol: 'administrador' }) } });
+  const res = await request(app).delete(`/api/usuarios/${UUID}`).set(...AUTH);
+
+  assert.equal(res.status, 400);
+});
+
+test('DELETE /api/usuarios/:id borra la fila y la cuenta de Auth', async () => {
+  const otro = '22222222-2222-4222-8222-222222222222';
+  let eliminado = null;
+  const app = crearApp({
+    tables: {
+      usuarios: [usuario({ rol: 'administrador' }), { data: [{ id: otro, auth_id: 'auth-otro' }], error: null }],
+    },
+    stubExtra: { deleteUser: async (id) => { eliminado = id; return { data: null, error: null }; } },
+  });
+  const res = await request(app).delete(`/api/usuarios/${otro}`).set(...AUTH);
+
+  assert.equal(res.status, 200);
+  assert.equal(eliminado, 'auth-otro');
+});
+
+test('DELETE /api/usuarios/:id responde 409 si el usuario tiene registros asociados', async () => {
+  const otro = '22222222-2222-4222-8222-222222222222';
+  let eliminado = null;
+  const app = crearApp({
+    tables: {
+      usuarios: [usuario({ rol: 'administrador' }), { data: null, error: { code: '23503', message: 'fk' } }],
+    },
+    stubExtra: { deleteUser: async (id) => { eliminado = id; return { data: null, error: null }; } },
+  });
+  const res = await request(app).delete(`/api/usuarios/${otro}`).set(...AUTH);
+
+  assert.equal(res.status, 409);
+  assert.equal(eliminado, null);
+});
+
+test('DELETE /api/usuarios/:id responde 404 si el usuario no existe', async () => {
+  const otro = '22222222-2222-4222-8222-222222222222';
+  const app = crearApp({
+    tables: { usuarios: [usuario({ rol: 'administrador' }), { data: [], error: null }] },
+  });
+  const res = await request(app).delete(`/api/usuarios/${otro}`).set(...AUTH);
+
+  assert.equal(res.status, 404);
+});

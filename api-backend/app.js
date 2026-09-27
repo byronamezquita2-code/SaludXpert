@@ -118,7 +118,7 @@ function createApp({ supabase, supabaseAdmin } = {}) {
         callback(new Error(`CORS: origin no permitido — ${origin}`));
       }
     },
-    methods: ['GET', 'POST', 'PATCH', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   }));
 
@@ -559,6 +559,53 @@ function createApp({ supabase, supabaseAdmin } = {}) {
       console.error('Error PATCH /api/usuarios:', error.message);
       Sentry.captureException(error);
       res.status(500).json({ error: 'Error al actualizar usuario.' });
+    }
+  });
+
+  app.delete('/api/usuarios/:id', requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      if (!esUuid(id)) {
+        return res.status(400).json({ error: 'Identificador inválido.' });
+      }
+      if (id === req.usuarioId) {
+        return res.status(400).json({ error: 'No puedes eliminar tu propia cuenta.' });
+      }
+
+      const { data, error } = await clienteSupabaseAdmin
+        .from('usuarios')
+        .delete()
+        .eq('id', id)
+        .select('id, auth_id');
+
+      if (error) {
+        // 23503: consultas o pacientes lo referencian; borrarlo rompería el historial clínico.
+        if (error.code === '23503') {
+          return res.status(409).json({
+            error: 'Este usuario tiene consultas o pacientes registrados y no se puede eliminar. Desactívalo en su lugar.',
+          });
+        }
+        throw error;
+      }
+      if (!data || data.length === 0) {
+        return res.status(404).json({ error: 'Usuario no encontrado.' });
+      }
+
+      const authId = data[0].auth_id;
+      if (authId) {
+        const { error: authError } = await clienteSupabaseAdmin.auth.admin.deleteUser(authId);
+        if (authError) {
+          console.error('Error eliminando cuenta de Auth:', authError.message);
+          Sentry.captureException(authError);
+        }
+      }
+
+      res.json({ ok: true });
+    } catch (error) {
+      console.error('Error DELETE /api/usuarios:', error.message);
+      Sentry.captureException(error);
+      res.status(500).json({ error: 'Error al eliminar usuario.' });
     }
   });
 

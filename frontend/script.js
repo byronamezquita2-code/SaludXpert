@@ -173,6 +173,31 @@ function mostrarPrompt(titulo, placeholder = '') {
   });
 }
 
+function mostrarConfirmacion(titulo, mensaje, textoConfirmar = 'Aceptar') {
+  return new Promise(resolve => {
+    dialogTitle.textContent = titulo;
+    dialogBody.textContent = mensaje;
+    dialogInput.style.display = 'none';
+    dialogCancel.style.display = '';
+    dialogConfirm.textContent = textoConfirmar;
+
+    const terminar = (valor) => {
+      dialogConfirm.removeEventListener('click', onConfirm);
+      dialogCancel.removeEventListener('click', onCancel);
+      appDialog.removeEventListener('cancel', onCancel);
+      if (appDialog.open) appDialog.close();
+      resolve(valor);
+    };
+    const onConfirm = () => terminar(true);
+    const onCancel = () => terminar(false);
+
+    dialogConfirm.addEventListener('click', onConfirm);
+    dialogCancel.addEventListener('click', onCancel);
+    appDialog.addEventListener('cancel', onCancel);
+    appDialog.showModal();
+  });
+}
+
 function fadeIn(selector, opts = {}) {
   if (typeof gsap === 'undefined') return;
   const elementos = typeof selector === 'string' ? document.querySelectorAll(selector) : selector;
@@ -1444,18 +1469,24 @@ async function cargarPanelAdmin() {
     tbody.innerHTML = '';
     usuarios.forEach(u => {
       const tr = document.createElement('tr');
+      const esUnoMismo = u.id === usuarioActual?.id;
       const accionTd = esAdmin
-        ? `<td>
-            <button class="btn-toggle ${u.activo ? 'desactivar' : 'activar'}" data-id="${u.id}" data-activo="${u.activo}">
-              ${u.activo ? 'Desactivar' : 'Activar'}
-            </button>
+        ? `<td class="celda-acciones" data-label="Acción">
+            <div class="acciones-usuario">
+              <button class="btn-toggle ${u.activo ? 'desactivar' : 'activar'}" data-id="${u.id}" data-activo="${u.activo}">
+                ${u.activo ? 'Desactivar' : 'Activar'}
+              </button>
+              ${esUnoMismo ? '' : `<button class="btn-eliminar-usuario" data-id="${u.id}" data-nombre="${escaparHtml(u.nombre)}" aria-label="Eliminar a ${escaparHtml(u.nombre)}" title="Eliminar usuario">
+                <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+              </button>`}
+            </div>
           </td>`
         : '';
       tr.innerHTML = `
-        <td>${escaparHtml(u.nombre)}</td>
-        <td>${escaparHtml(u.correo)}</td>
-        <td><span class="rol-badge rol-${u.rol}">${escaparHtml(u.rol)}</span></td>
-        <td>${u.activo ? 'Activo' : 'Inactivo'}</td>
+        <td class="celda-nombre" data-label="Nombre">${escaparHtml(u.nombre)}</td>
+        <td class="celda-correo" data-label="Correo">${escaparHtml(u.correo)}</td>
+        <td data-label="Rol"><span class="rol-badge rol-${u.rol}">${escaparHtml(u.rol)}</span></td>
+        <td data-label="Estado">${u.activo ? 'Activo' : 'Inactivo'}</td>
         ${accionTd}
       `;
       tbody.appendChild(tr);
@@ -1475,6 +1506,23 @@ async function cargarPanelAdmin() {
             await cargarPanelAdmin();
           } catch (error) {
             await mostrarAlerta('Error', error.message || 'No se pudo actualizar el usuario.');
+          }
+        });
+      });
+
+      tbody.querySelectorAll('.btn-eliminar-usuario').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const confirmado = await mostrarConfirmacion(
+            'Eliminar usuario',
+            `¿Eliminar a ${btn.dataset.nombre}? Esta acción no se puede deshacer.`,
+            'Eliminar'
+          );
+          if (!confirmado) return;
+          try {
+            await apiFetch(`/api/usuarios/${btn.dataset.id}`, { method: 'DELETE' });
+            await cargarPanelAdmin();
+          } catch (error) {
+            await mostrarAlerta('No se pudo eliminar', error.message || 'No se pudo eliminar el usuario.');
           }
         });
       });
