@@ -1447,6 +1447,10 @@ function renderAlertaPeligro(sintomas) {
          <strong>Signos de peligro: estabilizar y referir de urgencia al hospital más cercano.</strong>
          <ul>${lista(referir)}${lista(inmediata)}</ul>
          <small>Normas de Atención Integral MSPAS 2025, Cuadro No. 1.</small>
+         <button type="button" class="btn-imprimir-referencia" id="btn-imprimir-referencia">
+           <span class="material-symbols-outlined" aria-hidden="true">print</span>
+           Imprimir hoja de referencia
+         </button>
        </div>`
     : `<span class="material-symbols-outlined" aria-hidden="true">priority_high</span>
        <div>
@@ -1456,6 +1460,89 @@ function renderAlertaPeligro(sintomas) {
        </div>`;
   alerta.hidden = false;
 }
+
+function edadDesde(fechaNacimiento) {
+  if (!fechaNacimiento) return '';
+  const nacimiento = new Date(`${fechaNacimiento}T00:00:00`);
+  const hoy = new Date();
+  let meses = (hoy.getFullYear() - nacimiento.getFullYear()) * 12 + (hoy.getMonth() - nacimiento.getMonth());
+  if (hoy.getDate() < nacimiento.getDate()) meses--;
+  if (meses < 12) return `${Math.max(meses, 0)} ${meses === 1 ? 'mes' : 'meses'}`;
+  const anios = Math.floor(meses / 12);
+  return `${anios} ${anios === 1 ? 'año' : 'años'}`;
+}
+
+function imprimirHojaReferencia() {
+  const hoja = document.getElementById('hoja-referencia');
+  const sintomas = ultimoResultado?.sintomas_ingresados || sintomasSeleccionados;
+  const porNombre = Object.fromEntries(listaSintomas.map(s => [s.nombre, s]));
+  const peligro = sintomas.filter(n => porNombre[n]?.nivel_alerta);
+  const otros = sintomas.filter(n => !porNombre[n]?.nivel_alerta);
+  const diagnosticos = (ultimoResultado?.diagnosticos || []).slice(0, 3);
+  const p = pacienteActual || {};
+  const fecha = new Date().toLocaleString('es-GT', {
+    timeZone: 'America/Guatemala', dateStyle: 'long', timeStyle: 'short',
+  });
+  const dato = (etiqueta, valor) => `<div class="hr-dato"><span>${etiqueta}</span><strong>${escaparHtml(valor || '—')}</strong></div>`;
+  const lista = items => items.length
+    ? `<ul>${items.map(i => `<li>${escaparHtml(i)}</li>`).join('')}</ul>`
+    : '<p>—</p>';
+  const linea = etiqueta => `<div class="hr-linea"><span>${etiqueta}</span><i></i></div>`;
+
+  hoja.innerHTML = `
+    <header class="hr-encabezado">
+      <div>
+        <h1>Hoja de referencia</h1>
+        <p>Centro de Salud de Salcajá · ${escaparHtml(fecha)}</p>
+      </div>
+      <img src="assets/brand/saludxpert-mark.png" alt="">
+    </header>
+
+    <h2>Datos del paciente</h2>
+    <div class="hr-grid">
+      ${dato('Nombre', p.nombre)}
+      ${dato('CUI / DPI', p.documento)}
+      ${dato('Fecha de nacimiento', p.fecha_nacimiento ? `${p.fecha_nacimiento} (${edadDesde(p.fecha_nacimiento)})` : '')}
+      ${dato('Alergias', p.alergias)}
+      ${dato('Condiciones crónicas', p.condiciones_cronicas)}
+      ${dato('Medicamentos actuales', p.medicamentos_actuales)}
+    </div>
+
+    <h2>Motivo de referencia: signos de peligro</h2>
+    <p class="hr-nota">Normas de Atención Integral MSPAS 2025, Cuadro No. 1: estabilizar y referir de urgencia.</p>
+    ${lista(peligro)}
+
+    <h2>Otros síntomas registrados</h2>
+    ${lista(otros)}
+
+    <h2>Diagnóstico presuntivo (apoyo al criterio médico)</h2>
+    ${lista(diagnosticos.map(d => `${d.enfermedad} (${d.confianza} %)`))}
+
+    <h2>Signos vitales y manejo</h2>
+    <div class="hr-vitales">
+      ${linea('Temperatura')}${linea('Frec. cardiaca')}${linea('Frec. respiratoria')}
+      ${linea('Saturación O₂')}${linea('Peso')}${linea('Presión arterial')}
+    </div>
+    ${linea('Tratamiento o estabilización administrada')}
+    ${linea('')}
+    ${linea('Hospital o servicio de destino')}
+
+    <div class="hr-firmas">
+      <div><i></i><span>${escaparHtml(usuarioActual ? nombreConTitulo(usuarioActual) : '')}</span><small>${escaparHtml(usuarioActual ? etiquetaRol(usuarioActual) : '')} · refiere</small></div>
+      <div><i></i><span>Firma y sello</span></div>
+    </div>
+
+    <footer class="hr-pie">Documento de apoyo generado por SaludXpert. No sustituye la boleta oficial de referencia y contrarreferencia del MSPAS.</footer>
+  `;
+
+  document.body.classList.add('imprimiendo-referencia');
+  window.addEventListener('afterprint', () => document.body.classList.remove('imprimiendo-referencia'), { once: true });
+  window.print();
+}
+
+document.getElementById('alerta-peligro').addEventListener('click', e => {
+  if (e.target.closest('#btn-imprimir-referencia')) imprimirHojaReferencia();
+});
 
 function mostrarResultado(resultado) {
   renderBannerPaciente('banner-paciente-resultado');

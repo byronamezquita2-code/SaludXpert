@@ -2653,3 +2653,61 @@ html[data-theme="dark"] .select-titulo { border-color: rgba(132, 181, 230, 0.3);
 .mfa-secreto { margin: 0; color: rgba(255, 255, 255, 0.72); font-size: 0.78rem; line-height: 1.5; text-align: center; }
 .mfa-secreto code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #ffffff; letter-spacing: 0.06em; word-break: break-all; user-select: all; }
 #mfa-codigo { letter-spacing: 0.3em; }
+
+/* ============ HOJA DE REFERENCIA (solo al imprimir) ============ */
+.btn-imprimir-referencia {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 9px 16px;
+  border: 0;
+  border-radius: 12px;
+  background: #ba1a1a;
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.btn-imprimir-referencia .material-symbols-outlined { font-size: 19px; }
+.btn-imprimir-referencia:focus-visible { outline: 2px solid #ba1a1a; outline-offset: 2px; }
+html[data-theme="dark"] .btn-imprimir-referencia { background: #c93a33; }
+
+.hoja-referencia { display: none; }
+
+@media print {
+  @page { size: letter; margin: 14mm; }
+  html, body { background: #fff !important; }
+  body.imprimiendo-referencia > *:not(#hoja-referencia) { display: none !important; }
+  body.imprimiendo-referencia #hoja-referencia {
+    display: block !important;
+    color: #000;
+    font: 10.5pt/1.4 Inter, system-ui, sans-serif;
+  }
+  #hoja-referencia h1 { margin: 0; font-size: 18pt; }
+  #hoja-referencia h2 {
+    margin: 14px 0 6px;
+    padding-bottom: 3px;
+    border-bottom: 1px solid #000;
+    font-size: 11pt;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  #hoja-referencia p { margin: 2px 0; }
+  #hoja-referencia ul { margin: 4px 0; padding-left: 18px; }
+  .hr-encabezado { display: flex; align-items: center; justify-content: space-between; }
+  .hr-encabezado img { width: 44px; height: 44px; }
+  .hr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 18px; }
+  .hr-dato span { display: block; font-size: 8.5pt; color: #444; }
+  .hr-nota { font-size: 9pt; font-style: italic; }
+  .hr-vitales { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0 18px; }
+  .hr-linea { display: flex; align-items: flex-end; gap: 8px; min-height: 26px; }
+  .hr-linea span { white-space: nowrap; font-size: 9.5pt; }
+  .hr-linea i { flex: 1; border-bottom: 1px solid #000; }
+  .hr-firmas { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 44px; text-align: center; }
+  .hr-firmas i { display: block; height: 1px; margin-bottom: 4px; background: #000; }
+  .hr-firmas span { display: block; font-weight: 700; }
+  .hr-firmas small { font-size: 8.5pt; }
+  .hr-pie { margin-top: 24px; font-size: 8pt; color: #444; text-align: center; }
+}
