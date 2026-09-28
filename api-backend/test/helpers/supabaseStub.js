@@ -48,7 +48,7 @@ function builderFor(queues, table, inserts) {
   return builder;
 }
 
-function createSupabaseStub({ user = null, tables = {}, inviteUser, deleteUser } = {}) {
+function createSupabaseStub({ user = null, tables = {}, inviteUser, deleteUser, resetPassword } = {}) {
   const queues = { ...tables };
   const inserts = [];
 
@@ -58,6 +58,7 @@ function createSupabaseStub({ user = null, tables = {}, inviteUser, deleteUser }
     auth: {
       getUser: async () =>
         user ? { data: { user }, error: null } : { data: null, error: { message: 'invalid token' } },
+      resetPasswordForEmail: resetPassword || (async () => ({ data: {}, error: null })),
       admin: {
         inviteUserByEmail:
           inviteUser || (async () => ({ data: { user: { id: 'auth-nuevo' } }, error: null })),

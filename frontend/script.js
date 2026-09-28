@@ -1651,6 +1651,9 @@ async function cargarPanelAdmin() {
               <button class="btn-toggle ${u.activo ? 'desactivar' : 'activar'}" data-id="${u.id}" data-activo="${u.activo}">
                 ${u.activo ? 'Desactivar' : 'Activar'}
               </button>
+              ${esUnoMismo || !u.activo ? '' : `<button class="btn-icono-usuario btn-reenviar-enlace" data-id="${u.id}" data-correo="${escaparHtml(u.correo)}" aria-label="Reenviar enlace para crear contraseña a ${escaparHtml(u.nombre)}" title="Reenviar enlace para crear contraseña">
+                <span class="material-symbols-outlined" aria-hidden="true">forward_to_inbox</span>
+              </button>`}
               ${esUnoMismo ? '' : `<button class="btn-eliminar-usuario" data-id="${u.id}" data-nombre="${escaparHtml(u.nombre)}" aria-label="Eliminar a ${escaparHtml(u.nombre)}" title="Eliminar usuario">
                 <span class="material-symbols-outlined" aria-hidden="true">delete</span>
               </button>`}
@@ -1681,6 +1684,26 @@ async function cargarPanelAdmin() {
             await cargarPanelAdmin();
           } catch (error) {
             await mostrarAlerta('Error', error.message || 'No se pudo actualizar el usuario.');
+          }
+        });
+      });
+
+      tbody.querySelectorAll('.btn-reenviar-enlace').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const confirmado = await mostrarConfirmacion(
+            'Reenviar enlace',
+            `Se enviará a ${btn.dataset.correo} un correo con un enlace nuevo para crear su contraseña.`,
+            'Enviar'
+          );
+          if (!confirmado) return;
+          btn.disabled = true;
+          try {
+            await apiFetch(`/api/usuarios/${btn.dataset.id}/reenviar-enlace`, { method: 'POST' });
+            await mostrarAlerta('Enlace enviado', `Se envió el correo a ${btn.dataset.correo}. El enlace sirve una sola vez.`);
+          } catch (error) {
+            await mostrarAlerta('No se pudo enviar', error.message || 'No se pudo enviar el enlace.');
+          } finally {
+            btn.disabled = false;
           }
         });
       });

@@ -2601,3 +2601,24 @@ html[data-theme="dark"] .alerta-peligro.alerta-peligro-referir > .material-symbo
   #pantalla-nueva-contrasena .nueva-contrasena-logo { width: min(56vw, 220px); }
   #pantalla-nueva-contrasena .requisitos-contrasena { grid-template-columns: 1fr; }
 }
+
+/* Botón de reenviar enlace: mismo tamaño que el de eliminar, en tono primario. */
+.btn-icono-usuario {
+  display: inline-grid;
+  place-items: center;
+  width: 35px;
+  height: 35px;
+  border: 1px solid rgba(10, 98, 215, 0.2);
+  border-radius: 11px;
+  background: transparent;
+  color: #0b66dc;
+  cursor: pointer;
+  transition: background-color 160ms var(--app-ease-out), transform 150ms var(--app-ease-out);
+}
+.btn-icono-usuario .material-symbols-outlined { font-size: 19px; }
+.btn-icono-usuario:hover { background: #e3efff; }
+.btn-icono-usuario:active { transform: scale(0.94); }
+.btn-icono-usuario:disabled { opacity: 0.5; cursor: wait; }
+.btn-icono-usuario:focus-visible { outline: 2px solid #0b66dc; outline-offset: 2px; }
+html[data-theme="dark"] .btn-icono-usuario { border-color: rgba(132, 181, 230, 0.3); color: #8fc3ff; }
+html[data-theme="dark"] .btn-icono-usuario:hover { background: rgba(35, 95, 153, 0.3); }

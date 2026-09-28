@@ -585,6 +585,50 @@ function createApp({ supabase, supabaseAdmin } = {}) {
     }
   });
 
+  // Envía un correo de recuperación: lleva a la misma pantalla de "crear contraseña"
+  // que la invitación, y sirve también si la invitación ya venció o se usó.
+  app.post('/api/usuarios/:id/reenviar-enlace', requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      if (!esUuid(id)) {
+        return res.status(400).json({ error: 'Identificador inválido.' });
+      }
+
+      const { data: usuario, error } = await clienteSupabaseAdmin
+        .from('usuarios')
+        .select('id, correo, activo')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!usuario) {
+        return res.status(404).json({ error: 'Usuario no encontrado.' });
+      }
+      if (!usuario.activo) {
+        return res.status(400).json({ error: 'La cuenta está desactivada. Actívala antes de reenviar el enlace.' });
+      }
+
+      const origen = allowedOrigins.includes(req.headers.origin) ? `${req.headers.origin}/` : undefined;
+      const { error: envioError } = await clienteSupabaseAdmin.auth.resetPasswordForEmail(
+        usuario.correo,
+        { redirectTo: origen }
+      );
+      if (envioError) {
+        if (envioError.status === 429) {
+          return res.status(429).json({ error: 'Se enviaron demasiados correos seguidos. Espera unos minutos e intenta de nuevo.' });
+        }
+        throw envioError;
+      }
+
+      await registrarAuditoria(req, 'enlace_reenviado', usuario);
+      res.json({ ok: true });
+    } catch (error) {
+      console.error('Error POST /api/usuarios/:id/reenviar-enlace:', error.message);
+      Sentry.captureException(error);
+      res.status(500).json({ error: 'No se pudo enviar el enlace.' });
+    }
+  });
+
   app.delete('/api/usuarios/:id', requireAuth, requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;

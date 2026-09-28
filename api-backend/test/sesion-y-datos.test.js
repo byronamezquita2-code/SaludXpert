@@ -330,3 +330,68 @@ test('si falla la escritura de auditoría, la acción igual se completa', async 
 
   assert.equal(res.status, 200);
 });
+
+test('reenviar enlace exige rol administrador', async () => {
+  const otro = '22222222-2222-4222-8222-222222222222';
+  const app = crearApp({ tables: { usuarios: usuario({ rol: 'medico' }) } });
+  const res = await request(app).post(`/api/usuarios/${otro}/reenviar-enlace`).set(...AUTH);
+
+  assert.equal(res.status, 403);
+});
+
+test('reenviar enlace manda el correo al usuario y queda en auditoría', async () => {
+  const otro = '22222222-2222-4222-8222-222222222222';
+  const enviados = [];
+  const supabaseAdmin = createSupabaseStub({
+    user: { id: 'auth-1' },
+    tables: {
+      usuarios: [
+        usuario({ rol: 'administrador' }),
+        { data: { id: otro, correo: 'medico@salud.gob.gt', activo: true }, error: null },
+      ],
+      auditoria: { data: null, error: null },
+    },
+    resetPassword: async (correo) => { enviados.push(correo); return { data: {}, error: null }; },
+  });
+  const res = await request(createApp({ supabaseAdmin }).app)
+    .post(`/api/usuarios/${otro}/reenviar-enlace`)
+    .set(...AUTH);
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(enviados, ['medico@salud.gob.gt']);
+  assert.equal(supabaseAdmin.inserts.find(i => i.table === 'auditoria')?.filas[0].accion, 'enlace_reenviado');
+});
+
+test('reenviar enlace a una cuenta desactivada responde 400 sin enviar correo', async () => {
+  const otro = '22222222-2222-4222-8222-222222222222';
+  let enviado = false;
+  const app = crearApp({
+    tables: {
+      usuarios: [
+        usuario({ rol: 'administrador' }),
+        { data: { id: otro, correo: 'x@salud.gob.gt', activo: false }, error: null },
+      ],
+    },
+    stubExtra: { resetPassword: async () => { enviado = true; return { data: {}, error: null }; } },
+  });
+  const res = await request(app).post(`/api/usuarios/${otro}/reenviar-enlace`).set(...AUTH);
+
+  assert.equal(res.status, 400);
+  assert.equal(enviado, false);
+});
+
+test('reenviar enlace responde 429 cuando Supabase limita los correos', async () => {
+  const otro = '22222222-2222-4222-8222-222222222222';
+  const app = crearApp({
+    tables: {
+      usuarios: [
+        usuario({ rol: 'administrador' }),
+        { data: { id: otro, correo: 'x@salud.gob.gt', activo: true }, error: null },
+      ],
+    },
+    stubExtra: { resetPassword: async () => ({ data: null, error: { status: 429, message: 'rate limit' } }) },
+  });
+  const res = await request(app).post(`/api/usuarios/${otro}/reenviar-enlace`).set(...AUTH);
+
+  assert.equal(res.status, 429);
+});
