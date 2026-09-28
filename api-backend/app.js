@@ -27,7 +27,8 @@ Sentry.init({
   },
 });
 
-const USUARIO_COLUMNAS_PUBLICAS = 'id, nombre, correo, rol, activo, creado_en';
+const USUARIO_COLUMNAS_PUBLICAS = 'id, nombre, correo, rol, activo, titulo, creado_en';
+const TITULOS_VALIDOS = ['Dr.', 'Dra.'];
 const PACIENTE_COLUMNAS = 'id, nombre, documento, fecha_nacimiento, alergias, condiciones_cronicas, medicamentos_actuales, creado_en';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -152,7 +153,7 @@ function createApp({ supabase, supabaseAdmin } = {}) {
 
       const { data: usuario, error: errorUsuario } = await clienteSupabaseAdmin
         .from('usuarios')
-        .select('id, nombre, correo, rol, activo')
+        .select('id, nombre, correo, rol, activo, titulo')
         .eq('auth_id', data.user.id)
         .maybeSingle();
 
@@ -509,6 +510,7 @@ function createApp({ supabase, supabaseAdmin } = {}) {
   app.post('/api/usuarios', requireAuth, requireAdmin, async (req, res) => {
     try {
       const { nombre, correo, rol } = req.body;
+      const titulo = req.body.titulo ?? null;
 
       // Por decisión del centro hay un único administrador; no se crean más desde la app.
       if (!['medico', 'enfermeria'].includes(rol)) {
@@ -519,6 +521,9 @@ function createApp({ supabase, supabaseAdmin } = {}) {
       }
       if (typeof correo !== 'string' || correo.length > 254 || !EMAIL_REGEX.test(correo)) {
         return res.status(400).json({ error: 'Correo inválido.' });
+      }
+      if (titulo !== null && !TITULOS_VALIDOS.includes(titulo)) {
+        return res.status(400).json({ error: 'Título inválido — debe ser Dr. o Dra.' });
       }
 
       // El enlace de la invitación vuelve al mismo frontend desde el que invitó el administrador.
@@ -532,7 +537,7 @@ function createApp({ supabase, supabaseAdmin } = {}) {
 
       const { data, error } = await clienteSupabaseAdmin
         .from('usuarios')
-        .insert([{ nombre, correo, rol, activo: true, auth_id: authData.user.id }])
+        .insert([{ nombre, correo, rol, titulo, activo: true, auth_id: authData.user.id }])
         .select(USUARIO_COLUMNAS_PUBLICAS);
 
       if (error) {
@@ -554,21 +559,31 @@ function createApp({ supabase, supabaseAdmin } = {}) {
   app.patch('/api/usuarios/:id', requireAuth, requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;
-      const { activo } = req.body;
+      const { activo, titulo } = req.body;
 
       if (!esUuid(id)) {
         return res.status(400).json({ error: 'Identificador inválido.' });
       }
-      if (typeof activo !== 'boolean') {
+      if (activo === undefined && titulo === undefined) {
+        return res.status(400).json({ error: 'Nada que actualizar.' });
+      }
+      if (activo !== undefined && typeof activo !== 'boolean') {
         return res.status(400).json({ error: 'activo debe ser true o false.' });
+      }
+      if (titulo !== undefined && titulo !== null && !TITULOS_VALIDOS.includes(titulo)) {
+        return res.status(400).json({ error: 'Título inválido — debe ser Dr. o Dra.' });
       }
       if (id === req.usuarioId && activo === false) {
         return res.status(400).json({ error: 'No puedes desactivar tu propia cuenta.' });
       }
 
+      const cambios = {};
+      if (activo !== undefined) cambios.activo = activo;
+      if (titulo !== undefined) cambios.titulo = titulo;
+
       const { data, error } = await clienteSupabaseAdmin
         .from('usuarios')
-        .update({ activo })
+        .update(cambios)
         .eq('id', id)
         .select(USUARIO_COLUMNAS_PUBLICAS);
 
@@ -576,7 +591,12 @@ function createApp({ supabase, supabaseAdmin } = {}) {
       if (!data || data.length === 0) {
         return res.status(404).json({ error: 'Usuario no encontrado.' });
       }
-      await registrarAuditoria(req, activo ? 'usuario_activado' : 'usuario_desactivado', data[0]);
+      if (activo !== undefined) {
+        await registrarAuditoria(req, activo ? 'usuario_activado' : 'usuario_desactivado', data[0]);
+      }
+      if (titulo !== undefined) {
+        await registrarAuditoria(req, 'titulo_actualizado', data[0], { titulo });
+      }
       res.json(data[0]);
     } catch (error) {
       console.error('Error PATCH /api/usuarios:', error.message);

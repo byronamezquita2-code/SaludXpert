@@ -395,3 +395,37 @@ test('reenviar enlace responde 429 cuando Supabase limita los correos', async ()
 
   assert.equal(res.status, 429);
 });
+
+test('PATCH /api/usuarios/:id permite cambiar el título a Dr. o Dra.', async () => {
+  const otro = '22222222-2222-4222-8222-222222222222';
+  const app = crearApp({
+    tables: {
+      usuarios: [
+        usuario({ rol: 'administrador' }),
+        { data: [{ id: otro, nombre: 'Susan', rol: 'medico', titulo: 'Dra.', activo: true }], error: null },
+      ],
+    },
+  });
+  const res = await request(app).patch(`/api/usuarios/${otro}`).set(...AUTH).send({ titulo: 'Dra.' });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.titulo, 'Dra.');
+});
+
+test('PATCH /api/usuarios/:id rechaza un título que no sea Dr. o Dra.', async () => {
+  const otro = '22222222-2222-4222-8222-222222222222';
+  const app = crearApp({ tables: { usuarios: usuario({ rol: 'administrador' }) } });
+  const res = await request(app).patch(`/api/usuarios/${otro}`).set(...AUTH).send({ titulo: 'Lic.' });
+
+  assert.equal(res.status, 400);
+});
+
+test('POST /api/usuarios rechaza un título inválido', async () => {
+  const app = crearApp({ tables: { usuarios: usuario({ rol: 'administrador' }) } });
+  const res = await request(app)
+    .post('/api/usuarios')
+    .set(...AUTH)
+    .send({ nombre: 'Nuevo', correo: 'nuevo@salud.gob.gt', rol: 'medico', titulo: 'Doc' });
+
+  assert.equal(res.status, 400);
+});

@@ -664,12 +664,12 @@ function topbarHTML() {
   return `
     <span class="topbar-location">Centro de Salud Salcajá</span>
     <div class="topbar-account">
-      <span class="topbar-avatar material-symbols-outlined" aria-hidden="true">person</span>
-      <div class="topbar-user-copy text-right">
-        <p class="text-label-md font-label-md text-on-surface leading-none topbar-usuario-nombre"></p>
-        <p class="text-xs text-on-secondary-container topbar-usuario-rol"></p>
+      <div class="topbar-user-copy">
+        <p class="topbar-usuario-nombre"></p>
+        <p class="topbar-usuario-rol"></p>
       </div>
       <span class="topbar-usuario-compacto"></span>
+      <span class="topbar-avatar material-symbols-outlined" aria-hidden="true">person</span>
       <button class="btn-logout" title="Cerrar sesión" aria-label="Cerrar sesión">
         <span class="material-symbols-outlined" aria-hidden="true">logout</span>
       </button>
@@ -688,6 +688,7 @@ function inyectarShell(rol) {
   });
   registrarEventosShell();
   actualizarControlesTema();
+  actualizarTopbarUsuario();
 }
 
 function activarConTeclado(el) {
@@ -852,23 +853,38 @@ function escaparHtml(texto) {
   return div.innerHTML;
 }
 
+function nombreConTitulo(u) {
+  return u.titulo ? `${u.titulo} ${u.nombre}` : u.nombre;
+}
+
+function etiquetaRol(u) {
+  if (u.rol === 'medico') {
+    if (u.titulo === 'Dra.') return 'Médica';
+    if (u.titulo === 'Dr.') return 'Médico';
+    return 'Medicina';
+  }
+  if (u.rol === 'enfermeria') return 'Enfermería';
+  if (u.rol === 'administrador') return 'Administración';
+  return capitalizar(u.rol);
+}
+
+function nombreCompacto(u) {
+  const primerNombre = (u.nombre || '').trim().split(/\s+/)[0];
+  if (u.titulo) return `${u.titulo} ${primerNombre}`;
+  if (u.rol === 'enfermeria') return `Enf. ${primerNombre}`;
+  return primerNombre;
+}
+
 function actualizarTopbarUsuario() {
+  const u = usuarioActual;
   document.querySelectorAll('.topbar-usuario-nombre').forEach(el => {
-    el.textContent = usuarioActual ? usuarioActual.nombre : '';
+    el.textContent = u ? nombreConTitulo(u) : '';
   });
   document.querySelectorAll('.topbar-usuario-rol').forEach(el => {
-    el.textContent = usuarioActual ? capitalizar(usuarioActual.rol) : '';
+    el.textContent = u ? etiquetaRol(u) : '';
   });
-  const rolesCompactos = {
-    administrador: 'Admin',
-    medico: 'Dr',
-    enfermeria: 'ENF',
-  };
-  const rolCompacto = usuarioActual
-    ? (rolesCompactos[usuarioActual.rol] || capitalizar(usuarioActual.rol))
-    : '';
   document.querySelectorAll('.topbar-usuario-compacto').forEach(el => {
-    el.textContent = rolCompacto;
+    el.textContent = u ? nombreCompacto(u) : '';
   });
 }
 
@@ -876,7 +892,7 @@ async function cargarUsuarioActual() {
   usuarioActual = null;
   try {
     const data = await apiFetch('/api/usuarios/me');
-    usuarioActual = { correo: data.correo, nombre: data.nombre, rol: data.rol };
+    usuarioActual = { id: data.id, correo: data.correo, nombre: data.nombre, rol: data.rol, titulo: data.titulo || null };
   } catch {
   }
   actualizarTopbarUsuario();
@@ -1570,10 +1586,21 @@ document.getElementById('btn-agregar-usuario').addEventListener('click', async (
     return;
   }
 
+  let titulo = null;
+  if (rol === 'medico') {
+    const tituloEscrito = await mostrarPrompt('Título (Dr. o Dra.)', 'Dr. / Dra.');
+    const normalizado = (tituloEscrito || '').trim().toLowerCase().replace(/\.$/, '');
+    titulo = { dr: 'Dr.', doctor: 'Dr.', dra: 'Dra.', doctora: 'Dra.' }[normalizado] || null;
+    if (!titulo) {
+      await mostrarAlerta('Título inválido', 'Escribe Dr. o Dra.');
+      return;
+    }
+  }
+
   try {
     await apiFetch('/api/usuarios', {
       method: 'POST',
-      body: JSON.stringify({ nombre, correo, rol }),
+      body: JSON.stringify({ nombre, correo, rol, titulo }),
     });
     await mostrarAlerta('Usuario agregado', 'Se envió la invitación por correo al nuevo usuario.');
     await cargarPanelAdmin();
@@ -1660,10 +1687,17 @@ async function cargarPanelAdmin() {
             </div>
           </td>`
         : '';
+      const selectorTitulo = esAdmin && u.rol === 'medico'
+        ? `<select class="select-titulo" data-id="${u.id}" aria-label="Título de ${escaparHtml(u.nombre)}">
+            <option value="" ${u.titulo ? '' : 'selected'}>Título</option>
+            <option value="Dr." ${u.titulo === 'Dr.' ? 'selected' : ''}>Dr.</option>
+            <option value="Dra." ${u.titulo === 'Dra.' ? 'selected' : ''}>Dra.</option>
+          </select>`
+        : '';
       tr.innerHTML = `
-        <td class="celda-nombre" data-label="Nombre">${escaparHtml(u.nombre)}</td>
+        <td class="celda-nombre" data-label="Nombre">${escaparHtml(nombreConTitulo(u))}</td>
         <td class="celda-correo" data-label="Correo">${escaparHtml(u.correo)}</td>
-        <td data-label="Rol"><span class="rol-badge rol-${u.rol}">${escaparHtml(u.rol)}</span></td>
+        <td data-label="Rol"><div class="celda-rol"><span class="rol-badge rol-${u.rol}">${escaparHtml(etiquetaRol(u))}</span>${selectorTitulo}</div></td>
         <td data-label="Estado">${u.activo ? 'Activo' : 'Inactivo'}</td>
         ${accionTd}
       `;
@@ -1684,6 +1718,20 @@ async function cargarPanelAdmin() {
             await cargarPanelAdmin();
           } catch (error) {
             await mostrarAlerta('Error', error.message || 'No se pudo actualizar el usuario.');
+          }
+        });
+      });
+
+      tbody.querySelectorAll('.select-titulo').forEach(select => {
+        select.addEventListener('change', async () => {
+          try {
+            await apiFetch(`/api/usuarios/${select.dataset.id}`, {
+              method: 'PATCH',
+              body: JSON.stringify({ titulo: select.value || null }),
+            });
+            await cargarPanelAdmin();
+          } catch (error) {
+            await mostrarAlerta('Error', error.message || 'No se pudo guardar el título.');
           }
         });
       });
