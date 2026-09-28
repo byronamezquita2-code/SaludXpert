@@ -101,44 +101,55 @@
 
 <!-- ============ CREAR CONTRASEÑA (invitación / recuperación) ============ -->
 <div id="pantalla-nueva-contrasena" class="pantalla">
-  <main class="flex min-h-screen items-center justify-center p-margin-mobile">
-    <div class="w-full max-w-md p-10 bg-surface-container-lowest rounded-xl shadow-lg flex flex-col items-center">
-      <div class="mb-8 flex flex-col items-center">
-        <svg class="w-16 h-16 mb-3 text-primary" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 2L3 6v6c0 5 4 9 9 10 5-1 9-5 9-10V6l-9-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-          <path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>
-        <h1 class="text-display-lg text-primary text-center">SaludXpert</h1>
+  <picture class="login-background" aria-hidden="true">
+    <source media="(max-width: 640px), (max-width: 1024px) and (orientation: portrait)" srcset="assets/login/background-mobile.jpeg">
+    <img src="assets/login/background-desktop.jpeg" alt="" decoding="async">
+  </picture>
+  <div class="login-shade" aria-hidden="true"></div>
+
+  <main class="login-stage">
+    <section class="login-composition" aria-label="Crear contraseña de SaludXpert">
+      <img class="nueva-contrasena-logo" src="assets/login/saludxpert-logo-transparent.png" alt="SaludXpert" draggable="false">
+
+      <div class="login-card">
+        <div class="login-card-highlight" aria-hidden="true"></div>
+        <div class="login-card-content">
+          <header class="login-card-header">
+            <p class="login-eyebrow">Bienvenido/a</p>
+            <h1>Crea tu contraseña</h1>
+            <p class="nueva-contrasena-intro">La usarás para iniciar sesión en SaludXpert.</p>
+          </header>
+
+          <form id="form-nueva-contrasena" class="login-form">
+            <div class="login-field">
+              <label class="sr-only" for="nueva-contrasena">Nueva contraseña</label>
+              <span class="material-symbols-outlined login-field-icon" aria-hidden="true">lock</span>
+              <input id="nueva-contrasena" placeholder="Nueva contraseña" required type="password" minlength="8" autocomplete="new-password">
+            </div>
+
+            <div class="login-field">
+              <label class="sr-only" for="confirmar-contrasena">Confirmar contraseña</label>
+              <span class="material-symbols-outlined login-field-icon" aria-hidden="true">lock_reset</span>
+              <input id="confirmar-contrasena" placeholder="Confirmar contraseña" required type="password" minlength="8" autocomplete="new-password">
+            </div>
+
+            <ul id="requisitos-contrasena" class="requisitos-contrasena" aria-live="polite">
+              <li data-req="largo">Al menos 8 caracteres</li>
+              <li data-req="minuscula">Una letra minúscula</li>
+              <li data-req="mayuscula">Una letra mayúscula</li>
+              <li data-req="numero">Un número</li>
+            </ul>
+
+            <p id="mensaje-error-nueva-contrasena" class="mensaje-error" role="alert" aria-live="polite"></p>
+
+            <button class="login-submit" type="submit">
+              <span class="login-submit-label">Guardar y continuar</span>
+              <span class="material-symbols-outlined login-submit-arrow" aria-hidden="true">arrow_forward</span>
+            </button>
+          </form>
+        </div>
       </div>
-      <p class="text-body-lg text-on-surface-variant text-center mb-6">Bienvenido/a. Antes de continuar, crea tu contraseña para poder iniciar sesión de nuevo más adelante.</p>
-      <form id="form-nueva-contrasena" class="w-full flex flex-col gap-6">
-        <div class="flex flex-col gap-2">
-          <label class="text-label-md text-on-surface" for="nueva-contrasena">Nueva contraseña</label>
-          <div class="relative">
-            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">lock</span>
-            <input class="w-full pl-10 pr-4 py-3 bg-surface rounded-lg border border-outline-variant focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-body-lg text-on-surface transition-all" id="nueva-contrasena" placeholder="••••••••" required type="password" minlength="8">
-          </div>
-        </div>
-        <div class="flex flex-col gap-2">
-          <label class="text-label-md text-on-surface" for="confirmar-contrasena">Confirmar contraseña</label>
-          <div class="relative">
-            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">lock</span>
-            <input class="w-full pl-10 pr-4 py-3 bg-surface rounded-lg border border-outline-variant focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-body-lg text-on-surface transition-all" id="confirmar-contrasena" placeholder="••••••••" required type="password" minlength="8">
-          </div>
-        </div>
-        <ul id="requisitos-contrasena" class="requisitos-contrasena" aria-live="polite">
-          <li data-req="largo">Al menos 8 caracteres</li>
-          <li data-req="minuscula">Una letra minúscula</li>
-          <li data-req="mayuscula">Una letra mayúscula</li>
-          <li data-req="numero">Un número</li>
-        </ul>
-        <button class="w-full py-4 mt-2 bg-primary text-on-primary text-headline-sm rounded-lg hover:bg-on-primary-fixed-variant transition-colors shadow-sm hover:shadow-md flex items-center justify-center gap-2 group" type="submit">
-          Guardar y continuar
-          <span class="material-symbols-outlined transition-transform group-hover:translate-x-1">arrow_forward</span>
-        </button>
-      </form>
-      <p id="mensaje-error-nueva-contrasena" class="mensaje-error text-center"></p>
-    </div>
+    </section>
   </main>
 </div>
 

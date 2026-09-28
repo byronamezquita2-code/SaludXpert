@@ -2541,3 +2541,63 @@ html[data-theme="dark"] .alerta-peligro { border-color: rgba(255, 200, 120, 0.3)
 html[data-theme="dark"] .alerta-peligro > .material-symbols-outlined { color: #ffc46b; }
 html[data-theme="dark"] .alerta-peligro.alerta-peligro-referir { border-color: rgba(255, 170, 165, 0.35); background: #2a1215; color: #ffdad6; }
 html[data-theme="dark"] .alerta-peligro.alerta-peligro-referir > .material-symbols-outlined { color: #ffaaa5; }
+
+/* ============ CREAR CONTRASEÑA (mismo diseño que el login) ============ */
+#pantalla-nueva-contrasena {
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: hidden;
+  background: #050505;
+  color: #ffffff;
+}
+
+#pantalla-nueva-contrasena .nueva-contrasena-logo {
+  display: block;
+  width: clamp(200px, 20vw, 280px);
+  height: auto;
+  user-select: none;
+  pointer-events: none;
+}
+
+#pantalla-nueva-contrasena .login-card {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: none;
+}
+
+.nueva-contrasena-intro {
+  margin: 8px 0 0;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+#pantalla-nueva-contrasena .requisitos-contrasena {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 14px;
+  margin: 2px 4px 0;
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 0.8rem;
+}
+#pantalla-nueva-contrasena .requisitos-contrasena li.cumplido { color: #a6f0c0; font-weight: 650; }
+
+#pantalla-nueva-contrasena .mensaje-error {
+  min-height: 0;
+  margin: 0 2px;
+  color: #ffd6d2;
+  font-size: 0.82rem;
+  font-weight: 560;
+  line-height: 1.4;
+  text-align: center;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.4);
+}
+#pantalla-nueva-contrasena .mensaje-error:empty { display: none; }
+
+@media (max-width: 640px) {
+  #pantalla-nueva-contrasena .nueva-contrasena-logo { width: min(56vw, 220px); }
+  #pantalla-nueva-contrasena .requisitos-contrasena { grid-template-columns: 1fr; }
+}

@@ -978,6 +978,31 @@ async function manejarEnlaceEspecial() {
   return true;
 }
 
+// Supabase puede exigir más que la lista de la app (se configura en su panel);
+// error.reasons dice qué regla falló: 'length', 'characters' o 'pwned'.
+function mensajeErrorContrasena(error) {
+  if (error.code === 'same_password') return 'La nueva contraseña debe ser diferente a la anterior.';
+  if (error.code !== 'weak_password') return 'No se pudo guardar la contraseña. Intenta de nuevo.';
+
+  const motivos = error.reasons || [];
+  const detalle = error.message || '';
+  if (motivos.includes('pwned')) {
+    return 'Esta contraseña aparece en filtraciones públicas y es fácil de adivinar. Elige una diferente.';
+  }
+  if (motivos.includes('length')) {
+    const minimo = detalle.match(/at least (\d+)/)?.[1];
+    return minimo
+      ? `La contraseña debe tener al menos ${minimo} caracteres.`
+      : 'La contraseña es demasiado corta. Usa una más larga.';
+  }
+  if (motivos.includes('characters')) {
+    return /[!@#$%]/.test(detalle)
+      ? 'La contraseña también debe incluir un símbolo, por ejemplo ! @ # $ %.'
+      : 'La contraseña debe incluir mayúsculas, minúsculas y números.';
+  }
+  return 'La contraseña es muy débil. Prueba con una más larga y diferente.';
+}
+
 function evaluarContrasena(clave) {
   return {
     largo: clave.length >= 8,
@@ -1011,11 +1036,12 @@ document.getElementById('form-nueva-contrasena').addEventListener('submit', asyn
     return;
   }
 
+  const btnGuardar = e.target.querySelector('button[type="submit"]');
+  btnGuardar.disabled = true;
   const { error } = await supabaseClient.auth.updateUser({ password: nueva });
+  btnGuardar.disabled = false;
   if (error) {
-    mensajeError.textContent = error.code === 'weak_password'
-      ? 'La contraseña es muy débil. Usa 8 o más caracteres, con mayúsculas, minúsculas y números.'
-      : 'No se pudo guardar la contraseña. Intenta de nuevo.';
+    mensajeError.textContent = mensajeErrorContrasena(error);
     return;
   }
 
