@@ -4,7 +4,7 @@ const path = require('node:path');
 const { createClient } = require('@supabase/supabase-js');
 const { cifrar, pedirClave, LARGO_MINIMO_CLAVE } = require('./cifrado');
 
-const TABLAS = ['usuarios', 'pacientes', 'consultas', 'sintomas', 'enfermedades', 'enfermedad_sintoma'];
+const TABLAS = ['usuarios', 'pacientes', 'consultas', 'sintomas', 'enfermedades', 'enfermedad_sintoma', 'auditoria'];
 const PAGINA = 1000;
 
 async function exportarTabla(supabase, tabla) {
