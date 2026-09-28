@@ -134,47 +134,69 @@ function createApp({ supabase, supabaseAdmin } = {}) {
   });
   app.use('/api', limiter);
 
+  // El token ya fue validado por getUser; aquí solo se lee su claim "aal"
+  // (aal2 = la sesión pasó la verificación en dos pasos).
+  function nivelDeAutenticacion(token) {
+    try {
+      return JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString()).aal || null;
+    } catch {
+      return null;
+    }
+  }
+
+  const requireAuth = crearRequireAuth({ permitirMfaPendiente: false });
+  // Solo para /api/usuarios/me: la app lo necesita para saber que debe pedir el código.
+  const requireAuthPerfil = crearRequireAuth({ permitirMfaPendiente: true });
+
   // Un JWT válido de Supabase Auth no basta: el auto-registro público de
   // Supabase permite crear cuentas, así que además debe existir una fila
   // activa en "usuarios" (la que crea un administrador al invitar).
-  async function requireAuth(req, res, next) {
-    try {
-      const authHeader = req.headers.authorization || '';
-      const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  // El administrador además debe tener la sesión verificada en dos pasos.
+  function crearRequireAuth({ permitirMfaPendiente }) {
+    return async function requireAuthMiddleware(req, res, next) {
+      try {
+        const authHeader = req.headers.authorization || '';
+        const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
-      if (!token) {
-        return res.status(401).json({ error: 'No autenticado — falta el token.' });
+        if (!token) {
+          return res.status(401).json({ error: 'No autenticado — falta el token.' });
+        }
+
+        const { data, error } = await clienteSupabaseAdmin.auth.getUser(token);
+        if (error || !data?.user) {
+          return res.status(401).json({ error: 'Token inválido o expirado.' });
+        }
+
+        const { data: usuario, error: errorUsuario } = await clienteSupabaseAdmin
+          .from('usuarios')
+          .select('id, nombre, correo, rol, activo, titulo')
+          .eq('auth_id', data.user.id)
+          .maybeSingle();
+
+        if (errorUsuario) throw errorUsuario;
+        if (!usuario) {
+          return res.status(403).json({ error: 'Tu cuenta no está registrada en el sistema. Contacta al administrador.', codigo: 'sin_registro' });
+        }
+        if (usuario.activo !== true) {
+          return res.status(403).json({ error: 'Tu cuenta está desactivada. Contacta al administrador.', codigo: 'cuenta_inactiva' });
+        }
+
+        req.mfaPendiente = usuario.rol === 'administrador' && nivelDeAutenticacion(token) !== 'aal2';
+        if (req.mfaPendiente && !permitirMfaPendiente) {
+          return res.status(403).json({ error: 'Verificación en dos pasos requerida.', codigo: 'mfa_requerida' });
+        }
+
+        req.authUser = data.user;
+        req.usuario = usuario;
+        req.usuarioId = usuario.id;
+        req.rolUsuario = usuario.rol;
+        next();
+      } catch (err) {
+        console.error('Error verificando sesión:', err.message);
+        Sentry.captureException(err);
+        res.status(500).json({ error: 'Error verificando la sesión.' });
       }
-
-      const { data, error } = await clienteSupabaseAdmin.auth.getUser(token);
-      if (error || !data?.user) {
-        return res.status(401).json({ error: 'Token inválido o expirado.' });
-      }
-
-      const { data: usuario, error: errorUsuario } = await clienteSupabaseAdmin
-        .from('usuarios')
-        .select('id, nombre, correo, rol, activo, titulo')
-        .eq('auth_id', data.user.id)
-        .maybeSingle();
-
-      if (errorUsuario) throw errorUsuario;
-      if (!usuario) {
-        return res.status(403).json({ error: 'Tu cuenta no está registrada en el sistema. Contacta al administrador.', codigo: 'sin_registro' });
-      }
-      if (usuario.activo !== true) {
-        return res.status(403).json({ error: 'Tu cuenta está desactivada. Contacta al administrador.', codigo: 'cuenta_inactiva' });
-      }
-
-      req.authUser = data.user;
-      req.usuario = usuario;
-      req.usuarioId = usuario.id;
-      req.rolUsuario = usuario.rol;
-      next();
-    } catch (err) {
-      console.error('Error verificando sesión:', err.message);
-      Sentry.captureException(err);
-      res.status(500).json({ error: 'Error verificando la sesión.' });
-    }
+    };
   }
 
   // Un fallo al auditar no debe impedir la acción ya realizada; se reporta a Sentry.
@@ -484,8 +506,8 @@ function createApp({ supabase, supabaseAdmin } = {}) {
     }
   });
 
-  app.get('/api/usuarios/me', requireAuth, (req, res) => {
-    res.json(req.usuario);
+  app.get('/api/usuarios/me', requireAuthPerfil, (req, res) => {
+    res.json({ ...req.usuario, mfa_requerida: req.mfaPendiente });
   });
 
   // Gestión de usuarios. GET visible para médicos y administradores (un

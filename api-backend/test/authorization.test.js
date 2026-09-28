@@ -25,7 +25,7 @@ test('requireAdmin bloquea con 403 a quien no es administrador', async () => {
   const app = appConAdmin({ rol: 'enfermeria' });
   const res = await request(app)
     .post('/api/usuarios')
-    .set('Authorization', 'Bearer token-valido')
+    .set('Authorization', 'Bearer x.eyJhYWwiOiJhYWwyIn0.firma')
     .send({ nombre: 'Nueva', correo: 'nueva@salud.gob.gt', rol: 'medico' });
 
   assert.equal(res.status, 403);
@@ -44,7 +44,7 @@ test('requireAdmin deja pasar a un administrador', async () => {
 
   const res = await request(app)
     .post('/api/usuarios')
-    .set('Authorization', 'Bearer token-valido')
+    .set('Authorization', 'Bearer x.eyJhYWwiOiJhYWwyIn0.firma')
     .send({ nombre: 'Nueva', correo: 'nueva@salud.gob.gt', rol: 'medico' });
 
   assert.equal(res.status, 200);
@@ -55,7 +55,7 @@ test('requireMedicoOAdmin bloquea con 403 a enfermería', async () => {
   const app = appConAdmin({ rol: 'enfermeria' });
   const res = await request(app)
     .get('/api/usuarios')
-    .set('Authorization', 'Bearer token-valido');
+    .set('Authorization', 'Bearer x.eyJhYWwiOiJhYWwyIn0.firma');
 
   assert.equal(res.status, 403);
 });
@@ -76,7 +76,7 @@ test('un médico solo ve usuarios con rol médico (filtrado en el backend)', asy
 
   const res = await request(app)
     .get('/api/usuarios')
-    .set('Authorization', 'Bearer token-valido');
+    .set('Authorization', 'Bearer x.eyJhYWwiOiJhYWwyIn0.firma');
 
   assert.equal(res.status, 200);
   assert.ok(Array.isArray(res.body));
@@ -86,7 +86,7 @@ test('PATCH /api/consultas/:id exige médico o administrador (403 para enfermer�
   const app = appConAdmin({ rol: 'enfermeria' });
   const res = await request(app)
     .patch(`/api/consultas/${UUID}`)
-    .set('Authorization', 'Bearer token-valido')
+    .set('Authorization', 'Bearer x.eyJhYWwiOiJhYWwyIn0.firma')
     .send({ decision_medico: 'confirmado' });
 
   assert.equal(res.status, 403);
@@ -102,7 +102,7 @@ test('PATCH /api/consultas/:id rechaza un decision_medico inválido', async () =
 
   const res = await request(app)
     .patch(`/api/consultas/${UUID}`)
-    .set('Authorization', 'Bearer token-valido')
+    .set('Authorization', 'Bearer x.eyJhYWwiOiJhYWwyIn0.firma')
     .send({ decision_medico: 'algo-invalido' });
 
   assert.equal(res.status, 400);
@@ -112,7 +112,7 @@ test('POST /api/usuarios rechaza un rol inválido incluso siendo administrador',
   const app = appConAdmin({ rol: 'administrador' });
   const res = await request(app)
     .post('/api/usuarios')
-    .set('Authorization', 'Bearer token-valido')
+    .set('Authorization', 'Bearer x.eyJhYWwiOiJhYWwyIn0.firma')
     .send({ nombre: 'Nueva', correo: 'nueva@salud.gob.gt', rol: 'superadmin' });
 
   assert.equal(res.status, 400);
@@ -122,7 +122,7 @@ test('PATCH /api/usuarios/:id exige que "activo" sea booleano', async () => {
   const app = appConAdmin({ rol: 'administrador' });
   const res = await request(app)
     .patch(`/api/usuarios/${UUID}`)
-    .set('Authorization', 'Bearer token-valido')
+    .set('Authorization', 'Bearer x.eyJhYWwiOiJhYWwyIn0.firma')
     .send({ activo: 'si' });
 
   assert.equal(res.status, 400);
@@ -132,7 +132,7 @@ test('POST /api/usuarios no permite crear otro administrador', async () => {
   const app = appConAdmin({ rol: 'administrador' });
   const res = await request(app)
     .post('/api/usuarios')
-    .set('Authorization', 'Bearer token-valido')
+    .set('Authorization', 'Bearer x.eyJhYWwiOiJhYWwyIn0.firma')
     .send({ nombre: 'Otro', correo: 'otro@salud.gob.gt', rol: 'administrador' });
 
   assert.equal(res.status, 400);
@@ -160,7 +160,7 @@ test('la invitación redirige solo a un origen permitido', async () => {
   for (const origin of ['http://127.0.0.1:5500', 'https://sitio-malicioso.example']) {
     await request(crear())
       .post('/api/usuarios')
-      .set('Authorization', 'Bearer token-valido')
+      .set('Authorization', 'Bearer x.eyJhYWwiOiJhYWwyIn0.firma')
       .set('Origin', origin)
       .send({ nombre: 'Nueva', correo: 'nueva@salud.gob.gt', rol: 'medico' });
   }

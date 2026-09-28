@@ -11,7 +11,7 @@ const { createApp } = require('../app');
 const { createSupabaseStub } = require('./helpers/supabaseStub');
 
 const AUTH_USER = { id: 'auth-1' };
-const AUTH_HEADER = ['Authorization', 'Bearer token-valido'];
+const AUTH_HEADER = ['Authorization', 'Bearer x.eyJhYWwiOiJhYWwyIn0.firma'];
 
 const UUID = '11111111-1111-4111-8111-111111111111';
 const USUARIO_ENFERMERIA = { data: { id: 'u1', nombre: 'Ana', correo: 'ana@salud.gob.gt', rol: 'enfermeria', activo: true }, error: null };

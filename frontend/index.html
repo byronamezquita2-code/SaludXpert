@@ -153,6 +153,58 @@
   </main>
 </div>
 
+<!-- ============ VERIFICACIÓN EN DOS PASOS (administrador) ============ -->
+<div id="pantalla-mfa" class="pantalla">
+  <picture class="login-background" aria-hidden="true">
+    <source media="(max-width: 640px), (max-width: 1024px) and (orientation: portrait)" srcset="assets/login/background-mobile.jpeg">
+    <img src="assets/login/background-desktop.jpeg" alt="" decoding="async">
+  </picture>
+  <div class="login-shade" aria-hidden="true"></div>
+
+  <main class="login-stage">
+    <section class="login-composition" aria-label="Verificación en dos pasos">
+      <img class="nueva-contrasena-logo" src="assets/login/saludxpert-logo-transparent.png" alt="SaludXpert" draggable="false">
+
+      <div class="login-card">
+        <div class="login-card-highlight" aria-hidden="true"></div>
+        <div class="login-card-content">
+          <header class="login-card-header">
+            <p class="login-eyebrow">Verificación en dos pasos</p>
+            <h1 id="mfa-titulo">Ingresa tu código</h1>
+            <p class="nueva-contrasena-intro" id="mfa-intro"></p>
+          </header>
+
+          <div id="mfa-configuracion" class="mfa-configuracion" hidden>
+            <img id="mfa-qr" class="mfa-qr" alt="Código QR para agregar SaludXpert a tu app de autenticación">
+            <p class="mfa-secreto">¿No puedes escanear? Escribe esta clave en la app:<br><code id="mfa-secreto"></code></p>
+          </div>
+
+          <form id="form-mfa" class="login-form">
+            <div class="login-field">
+              <label class="sr-only" for="mfa-codigo">Código de 6 dígitos</label>
+              <span class="material-symbols-outlined login-field-icon" aria-hidden="true">pin</span>
+              <input id="mfa-codigo" placeholder="Código de 6 dígitos" required inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6">
+            </div>
+
+            <p id="mensaje-error-mfa" class="mensaje-error" role="alert" aria-live="polite"></p>
+
+            <button class="login-submit" type="submit">
+              <span class="login-submit-label">Verificar</span>
+              <span class="material-symbols-outlined login-submit-arrow" aria-hidden="true">arrow_forward</span>
+            </button>
+
+            <div class="login-recovery-row">
+              <span aria-hidden="true"></span>
+              <button class="link-recuperar" id="mfa-cancelar" type="button">Cerrar sesión</button>
+              <span aria-hidden="true"></span>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
 <!-- ============ PACIENTE ============ -->
 <div id="pantalla-paciente" class="pantalla">
   <div class="app-shell">

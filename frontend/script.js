@@ -191,6 +191,11 @@ async function apiFetch(path, options = {}) {
       await cerrarSesionForzada(body.error);
       throw new Error(body.error);
     }
+    if (body.codigo === 'mfa_requerida') {
+      detenerControlInactividad();
+      await iniciarVerificacionMfa();
+      throw new Error(body.error);
+    }
   }
 
   if (!response.ok) {
@@ -892,12 +897,108 @@ async function cargarUsuarioActual() {
   usuarioActual = null;
   try {
     const data = await apiFetch('/api/usuarios/me');
-    usuarioActual = { id: data.id, correo: data.correo, nombre: data.nombre, rol: data.rol, titulo: data.titulo || null };
+    usuarioActual = {
+      id: data.id,
+      correo: data.correo,
+      nombre: data.nombre,
+      rol: data.rol,
+      titulo: data.titulo || null,
+      mfa_requerida: data.mfa_requerida === true,
+    };
   } catch {
   }
   actualizarTopbarUsuario();
   return usuarioActual !== null;
 }
+
+async function entrarAlSistema() {
+  if (usuarioActual.mfa_requerida) {
+    await iniciarVerificacionMfa();
+    return;
+  }
+  inyectarShell(usuarioActual.rol);
+  irAPantallaPaciente();
+}
+
+let mfaFactorId = null;
+
+// El administrador debe verificar su sesión con una app de autenticación (TOTP).
+// Si todavía no tiene una configurada, se le muestra el QR para activarla.
+async function iniciarVerificacionMfa() {
+  const titulo = document.getElementById('mfa-titulo');
+  const intro = document.getElementById('mfa-intro');
+  const configuracion = document.getElementById('mfa-configuracion');
+  document.getElementById('mensaje-error-mfa').textContent = '';
+  document.getElementById('mfa-codigo').value = '';
+  mfaFactorId = null;
+
+  const { data: factores, error } = await supabaseClient.auth.mfa.listFactors();
+  if (error) {
+    await cerrarSesionForzada('No se pudo verificar tu cuenta. Inicia sesión de nuevo.');
+    return;
+  }
+
+  const verificado = factores.totp.find(f => f.status === 'verified');
+  if (verificado) {
+    mfaFactorId = verificado.id;
+    configuracion.hidden = true;
+    titulo.textContent = 'Ingresa tu código';
+    intro.textContent = 'Abre tu app de autenticación y escribe el código de 6 dígitos de SaludXpert.';
+  } else {
+    // Un intento anterior sin terminar deja un factor "unverified" que impide crear otro.
+    for (const f of factores.all.filter(f => f.status === 'unverified')) {
+      await supabaseClient.auth.mfa.unenroll({ factorId: f.id });
+    }
+    const { data: nuevo, error: errorAlta } = await supabaseClient.auth.mfa.enroll({
+      factorType: 'totp',
+      friendlyName: 'SaludXpert',
+    });
+    if (errorAlta) {
+      await cerrarSesionForzada('No se pudo activar la verificación en dos pasos. Intenta de nuevo.');
+      return;
+    }
+    mfaFactorId = nuevo.id;
+    document.getElementById('mfa-qr').src = nuevo.totp.qr_code;
+    document.getElementById('mfa-secreto').textContent = nuevo.totp.secret;
+    configuracion.hidden = false;
+    titulo.textContent = 'Activa la verificación en dos pasos';
+    intro.textContent = 'Tu cuenta de administrador necesita un segundo paso. Escanea el código con Google Authenticator o Microsoft Authenticator y escribe los 6 dígitos que aparecen.';
+  }
+
+  mostrarPantalla('pantalla-mfa');
+  setTimeout(() => document.getElementById('mfa-codigo').focus(), 50);
+}
+
+document.getElementById('form-mfa').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const codigo = document.getElementById('mfa-codigo').value.trim();
+  const mensajeError = document.getElementById('mensaje-error-mfa');
+  mensajeError.textContent = '';
+
+  if (!/^\d{6}$/.test(codigo)) {
+    mensajeError.textContent = 'El código tiene 6 números.';
+    return;
+  }
+
+  const boton = e.target.querySelector('button[type="submit"]');
+  boton.disabled = true;
+  const { error } = await supabaseClient.auth.mfa.challengeAndVerify({ factorId: mfaFactorId, code: codigo });
+  boton.disabled = false;
+  if (error) {
+    mensajeError.textContent = 'Código incorrecto o vencido. Escribe el código que aparece ahora en tu app.';
+    return;
+  }
+
+  if (!(await cargarUsuarioActual())) {
+    await cerrarSesionForzada('No se pudo cargar tu perfil. Inicia sesión de nuevo.');
+    return;
+  }
+  await entrarAlSistema();
+});
+
+document.getElementById('mfa-cancelar').addEventListener('click', () => {
+  cerrarSesionForzada('');
+});
 
 function renderBannerPaciente(elementId) {
   const el = document.getElementById(elementId);
@@ -946,8 +1047,7 @@ async function restaurarSesion() {
       if (!mensaje.textContent) mensaje.textContent = 'No se pudo cargar tu perfil. Revisa tu conexión e inicia sesión de nuevo.';
       return;
     }
-    inyectarShell(usuarioActual.rol);
-    irAPantallaPaciente();
+    await entrarAlSistema();
   }
 }
 
@@ -1065,8 +1165,7 @@ document.getElementById('form-nueva-contrasena').addEventListener('submit', asyn
     await mostrarAlerta('Cuenta no disponible', document.getElementById('mensaje-error').textContent || 'No se pudo cargar tu perfil.');
     return;
   }
-  inyectarShell(usuarioActual.rol);
-  irAPantallaPaciente();
+  await entrarAlSistema();
 });
 
 (async function iniciarApp() {
@@ -1116,8 +1215,7 @@ document.getElementById('form-login').addEventListener('submit', async (e) => {
       if (!mensajeError.textContent) mensajeError.textContent = 'No se pudo cargar tu perfil. Revisa tu conexión e intenta de nuevo.';
       return;
     }
-    inyectarShell(usuarioActual.rol);
-    irAPantallaPaciente();
+    await entrarAlSistema();
   } catch {
     mensajeError.textContent = 'No se pudo iniciar sesión. Revisa tu conexión e intenta de nuevo.';
   } finally {

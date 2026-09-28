@@ -12,7 +12,7 @@ const { createApp, validarDatosPaciente } = require('../app');
 const { createSupabaseStub } = require('./helpers/supabaseStub');
 
 const UUID = '11111111-1111-4111-8111-111111111111';
-const AUTH = ['Authorization', 'Bearer token-valido'];
+const AUTH = ['Authorization', 'Bearer x.eyJhYWwiOiJhYWwyIn0.firma'];
 
 const usuario = (extra = {}) => ({
   data: { id: UUID, nombre: 'Ana', correo: 'ana@salud.gob.gt', rol: 'enfermeria', activo: true, ...extra },
@@ -428,4 +428,31 @@ test('POST /api/usuarios rechaza un título inválido', async () => {
     .send({ nombre: 'Nuevo', correo: 'nuevo@salud.gob.gt', rol: 'medico', titulo: 'Doc' });
 
   assert.equal(res.status, 400);
+});
+
+// Token cuya sesión NO pasó la verificación en dos pasos (aal1).
+const AUTH_AAL1 = ['Authorization', `Bearer x.${Buffer.from(JSON.stringify({ aal: 'aal1' })).toString('base64url')}.firma`];
+
+test('un administrador sin verificación en dos pasos recibe 403 mfa_requerida', async () => {
+  const app = crearApp({ tables: { usuarios: usuario({ rol: 'administrador' }) } });
+  const res = await request(app).get('/api/usuarios').set(...AUTH_AAL1);
+
+  assert.equal(res.status, 403);
+  assert.equal(res.body.codigo, 'mfa_requerida');
+});
+
+test('/api/usuarios/me avisa al administrador que falta la verificación en dos pasos', async () => {
+  const app = crearApp({ tables: { usuarios: usuario({ rol: 'administrador' }) } });
+  const res = await request(app).get('/api/usuarios/me').set(...AUTH_AAL1);
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.mfa_requerida, true);
+});
+
+test('médicos y enfermería no necesitan verificación en dos pasos', async () => {
+  const app = crearApp({ tables: { usuarios: usuario({ rol: 'enfermeria' }), sintomas: { data: [], error: null } } });
+  const res = await request(app).get('/api/usuarios/me').set(...AUTH_AAL1);
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.mfa_requerida, false);
 });

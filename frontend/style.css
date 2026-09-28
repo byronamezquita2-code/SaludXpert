@@ -440,7 +440,7 @@ body { font-family: 'Inter', sans-serif; }
   background: linear-gradient(90deg, rgba(255, 255, 255, 0.24), transparent);
 }
 
-#pantalla-login .link-recuperar {
+:is(#pantalla-login, #pantalla-mfa) .link-recuperar {
   margin: 0;
   padding: 8px 2px;
   border: 0;
@@ -458,8 +458,8 @@ body { font-family: 'Inter', sans-serif; }
     text-decoration-color 160ms ease;
 }
 
-#pantalla-login .link-recuperar:hover,
-#pantalla-login .link-recuperar:focus-visible {
+:is(#pantalla-login, #pantalla-mfa) .link-recuperar:hover,
+:is(#pantalla-login, #pantalla-mfa) .link-recuperar:focus-visible {
   color: #ffffff;
   text-decoration-color: rgba(255, 255, 255, 0.72);
 }
@@ -2543,7 +2543,7 @@ html[data-theme="dark"] .alerta-peligro.alerta-peligro-referir { border-color: r
 html[data-theme="dark"] .alerta-peligro.alerta-peligro-referir > .material-symbols-outlined { color: #ffaaa5; }
 
 /* ============ CREAR CONTRASEÑA (mismo diseño que el login) ============ */
-#pantalla-nueva-contrasena {
+:is(#pantalla-nueva-contrasena, #pantalla-mfa) {
   position: relative;
   isolation: isolate;
   min-height: 100vh;
@@ -2553,7 +2553,7 @@ html[data-theme="dark"] .alerta-peligro.alerta-peligro-referir > .material-symbo
   color: #ffffff;
 }
 
-#pantalla-nueva-contrasena .nueva-contrasena-logo {
+:is(#pantalla-nueva-contrasena, #pantalla-mfa) .nueva-contrasena-logo {
   display: block;
   width: clamp(200px, 20vw, 280px);
   height: auto;
@@ -2561,7 +2561,7 @@ html[data-theme="dark"] .alerta-peligro.alerta-peligro-referir > .material-symbo
   pointer-events: none;
 }
 
-#pantalla-nueva-contrasena .login-card {
+:is(#pantalla-nueva-contrasena, #pantalla-mfa) .login-card {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
@@ -2575,7 +2575,7 @@ html[data-theme="dark"] .alerta-peligro.alerta-peligro-referir > .material-symbo
   line-height: 1.45;
 }
 
-#pantalla-nueva-contrasena .requisitos-contrasena {
+:is(#pantalla-nueva-contrasena, #pantalla-mfa) .requisitos-contrasena {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 6px 14px;
@@ -2583,9 +2583,9 @@ html[data-theme="dark"] .alerta-peligro.alerta-peligro-referir > .material-symbo
   color: rgba(255, 255, 255, 0.66);
   font-size: 0.8rem;
 }
-#pantalla-nueva-contrasena .requisitos-contrasena li.cumplido { color: #a6f0c0; font-weight: 650; }
+:is(#pantalla-nueva-contrasena, #pantalla-mfa) .requisitos-contrasena li.cumplido { color: #a6f0c0; font-weight: 650; }
 
-#pantalla-nueva-contrasena .mensaje-error {
+:is(#pantalla-nueva-contrasena, #pantalla-mfa) .mensaje-error {
   min-height: 0;
   margin: 0 2px;
   color: #ffd6d2;
@@ -2595,11 +2595,11 @@ html[data-theme="dark"] .alerta-peligro.alerta-peligro-referir > .material-symbo
   text-align: center;
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.4);
 }
-#pantalla-nueva-contrasena .mensaje-error:empty { display: none; }
+:is(#pantalla-nueva-contrasena, #pantalla-mfa) .mensaje-error:empty { display: none; }
 
 @media (max-width: 640px) {
-  #pantalla-nueva-contrasena .nueva-contrasena-logo { width: min(56vw, 220px); }
-  #pantalla-nueva-contrasena .requisitos-contrasena { grid-template-columns: 1fr; }
+  :is(#pantalla-nueva-contrasena, #pantalla-mfa) .nueva-contrasena-logo { width: min(56vw, 220px); }
+  :is(#pantalla-nueva-contrasena, #pantalla-mfa) .requisitos-contrasena { grid-template-columns: 1fr; }
 }
 
 /* Botón de reenviar enlace: mismo tamaño que el de eliminar, en tono primario. */
@@ -2645,3 +2645,11 @@ html[data-theme="dark"] .btn-icono-usuario:hover { background: rgba(35, 95, 153,
 }
 .select-titulo:focus-visible { outline: 2px solid #0b66dc; outline-offset: 2px; }
 html[data-theme="dark"] .select-titulo { border-color: rgba(132, 181, 230, 0.3); background: #0d1a2b; color: #eaf2ff; }
+
+/* ============ VERIFICACIÓN EN DOS PASOS ============ */
+.mfa-configuracion { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 18px; }
+.mfa-configuracion[hidden] { display: none; }
+.mfa-qr { width: 184px; height: 184px; padding: 10px; border-radius: 18px; background: #ffffff; }
+.mfa-secreto { margin: 0; color: rgba(255, 255, 255, 0.72); font-size: 0.78rem; line-height: 1.5; text-align: center; }
+.mfa-secreto code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #ffffff; letter-spacing: 0.06em; word-break: break-all; user-select: all; }
+#mfa-codigo { letter-spacing: 0.3em; }
