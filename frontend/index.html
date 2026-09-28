@@ -90,7 +90,7 @@
             </div>
 
             <p class="login-aviso-privacidad">
-              Acceso exclusivo para personal autorizado. La información clínica es confidencial y solo debe usarse para la atención de pacientes.
+              Solo personal autorizado. Información clínica confidencial.
             </p>
           </form>
         </div>
@@ -125,12 +125,18 @@
               <label class="sr-only" for="nueva-contrasena">Nueva contraseña</label>
               <span class="material-symbols-outlined login-field-icon" aria-hidden="true">lock</span>
               <input id="nueva-contrasena" placeholder="Nueva contraseña" required type="password" minlength="8" autocomplete="new-password">
+              <button class="login-password-toggle btn-ver-contrasena" type="button" data-objetivo="nueva-contrasena" aria-label="Mostrar contraseña" aria-pressed="false">
+                <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
+              </button>
             </div>
 
             <div class="login-field">
               <label class="sr-only" for="confirmar-contrasena">Confirmar contraseña</label>
               <span class="material-symbols-outlined login-field-icon" aria-hidden="true">lock_reset</span>
               <input id="confirmar-contrasena" placeholder="Confirmar contraseña" required type="password" minlength="8" autocomplete="new-password">
+              <button class="login-password-toggle btn-ver-contrasena" type="button" data-objetivo="confirmar-contrasena" aria-label="Mostrar contraseña" aria-pressed="false">
+                <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
+              </button>
             </div>
 
             <ul id="requisitos-contrasena" class="requisitos-contrasena" aria-live="polite">
@@ -296,7 +302,7 @@
                 <div class="w-12 h-12 rounded-full flex items-center justify-center icono-peligro"><span class="material-symbols-outlined text-2xl">emergency</span></div>
                 <h2 class="text-headline-md font-headline-md text-on-surface">Signos de peligro</h2>
               </div>
-              <p class="texto-peligro mb-lg">Evalúelos primero. Si hay alguno marcado en rojo: estabilizar y referir de urgencia al hospital más cercano (Normas MSPAS 2025, Cuadro No. 1).</p>
+              <p class="texto-peligro mb-lg">Si hay alguno en rojo, estabilizar y referir de urgencia.</p>
               <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-md" id="cat-peligro"></div>
             </div>
 
@@ -399,7 +405,7 @@
                   Recuerde
                 </h3>
                 <p class="font-body-md text-body-md text-on-surface-variant">
-                  Este resultado es un apoyo al diagnóstico. La decisión clínica final corresponde siempre al criterio del médico.
+                  Es un apoyo al diagnóstico; la decisión final es del médico.
                 </p>
               </div>
             </div>
@@ -533,7 +539,7 @@
 
 <div id="aviso-conexion" class="aviso-conexion" role="status" aria-live="polite" hidden>
   <span class="aviso-conexion-spinner" aria-hidden="true"></span>
-  <span>Conectando con el servidor… la primera vez puede tardar hasta un minuto.</span>
+  <span>Conectando con el servidor…</span>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js" integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok" crossorigin="anonymous"></script>

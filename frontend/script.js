@@ -46,7 +46,7 @@ function aplicarTema(tema, persistir = true) {
       try {
         localStorage.setItem(THEME_STORAGE_KEY, temaSeguro);
       } catch {
-        // El tema sigue funcionando aunque el navegador bloquee el almacenamiento.
+        // Sin almacenamiento el tema funciona igual durante la sesión.
       }
     }
 
@@ -87,8 +87,7 @@ let ultimaActividad = Date.now();
 let ultimaActividadGuardada = 0;
 let intervaloInactividad = null;
 
-// La última actividad se comparte entre pestañas para no cerrar la sesión
-// de una pestaña en uso porque otra quedó abierta sin tocar.
+// Compartida entre pestañas para no cerrar una que sí se está usando.
 function leerActividadGuardada() {
   try {
     return Number(localStorage.getItem(ACTIVIDAD_STORAGE_KEY)) || 0;
@@ -162,7 +161,7 @@ async function apiFetch(path, options = {}) {
     ...(options.headers || {}),
   };
 
-  // El plan gratuito de Render se duerme; si tarda, avisar en vez de parecer colgado.
+  // Aviso si la API tarda en responder.
   let marcadaLenta = false;
   const temporizadorLento = setTimeout(() => {
     marcadaLenta = true;
@@ -922,8 +921,7 @@ async function entrarAlSistema() {
 
 let mfaFactorId = null;
 
-// El administrador debe verificar su sesión con una app de autenticación (TOTP).
-// Si todavía no tiene una configurada, se le muestra el QR para activarla.
+// Verificación en dos pasos del administrador; la primera vez muestra el QR.
 async function iniciarVerificacionMfa() {
   const titulo = document.getElementById('mfa-titulo');
   const intro = document.getElementById('mfa-intro');
@@ -943,9 +941,9 @@ async function iniciarVerificacionMfa() {
     mfaFactorId = verificado.id;
     configuracion.hidden = true;
     titulo.textContent = 'Ingresa tu código';
-    intro.textContent = 'Abre tu app de autenticación y escribe el código de 6 dígitos de SaludXpert.';
+    intro.textContent = 'Escribe el código de 6 dígitos de tu app de autenticación.';
   } else {
-    // Un intento anterior sin terminar deja un factor "unverified" que impide crear otro.
+    // Un intento sin terminar impide crear otro factor.
     for (const f of factores.all.filter(f => f.status === 'unverified')) {
       await supabaseClient.auth.mfa.unenroll({ factorId: f.id });
     }
@@ -962,7 +960,7 @@ async function iniciarVerificacionMfa() {
     document.getElementById('mfa-secreto').textContent = nuevo.totp.secret;
     configuracion.hidden = false;
     titulo.textContent = 'Activa la verificación en dos pasos';
-    intro.textContent = 'Tu cuenta de administrador necesita un segundo paso. Escanea el código con Google Authenticator o Microsoft Authenticator y escribe los 6 dígitos que aparecen.';
+    intro.textContent = 'Escanea el código con Google Authenticator y escribe los 6 dígitos.';
   }
 
   mostrarPantalla('pantalla-mfa');
@@ -985,7 +983,7 @@ document.getElementById('form-mfa').addEventListener('submit', async (e) => {
   const { error } = await supabaseClient.auth.mfa.challengeAndVerify({ factorId: mfaFactorId, code: codigo });
   boton.disabled = false;
   if (error) {
-    mensajeError.textContent = 'Código incorrecto o vencido. Escribe el código que aparece ahora en tu app.';
+    mensajeError.textContent = 'Código incorrecto o vencido.';
     return;
   }
 
@@ -1044,7 +1042,7 @@ async function restaurarSesion() {
   if (sessionData?.session) {
     if (!(await cargarUsuarioActual())) {
       const mensaje = document.getElementById('mensaje-error');
-      if (!mensaje.textContent) mensaje.textContent = 'No se pudo cargar tu perfil. Revisa tu conexión e inicia sesión de nuevo.';
+      if (!mensaje.textContent) mensaje.textContent = 'No se pudo cargar tu perfil. Inicia sesión de nuevo.';
       return;
     }
     await entrarAlSistema();
@@ -1074,7 +1072,7 @@ async function manejarEnlaceEspecial() {
     mostrarPantalla('pantalla-login');
     await mostrarAlerta(
       'Enlace expirado o ya usado',
-      'Este enlace ya no sirve. Si es tu primera vez, pide al administrador que te reenvíe la invitación; si ya tienes cuenta, usa "¿Olvidaste tu contraseña?".'
+      'Pide al administrador que te lo reenvíe o usa "¿Olvidaste tu contraseña?".'
     );
     return true;
   }
@@ -1094,8 +1092,7 @@ async function manejarEnlaceEspecial() {
   return true;
 }
 
-// Supabase puede exigir más que la lista de la app (se configura en su panel);
-// error.reasons dice qué regla falló: 'length', 'characters' o 'pwned'.
+// Traduce la regla de Supabase que rechazó la contraseña.
 function mensajeErrorContrasena(error) {
   if (error.code === 'same_password') return 'La nueva contraseña debe ser diferente a la anterior.';
   if (error.code !== 'weak_password') return 'No se pudo guardar la contraseña. Intenta de nuevo.';
@@ -1103,7 +1100,7 @@ function mensajeErrorContrasena(error) {
   const motivos = error.reasons || [];
   const detalle = error.message || '';
   if (motivos.includes('pwned')) {
-    return 'Esta contraseña aparece en filtraciones públicas y es fácil de adivinar. Elige una diferente.';
+    return 'Esa contraseña es muy común. Elige otra.';
   }
   if (motivos.includes('length')) {
     const minimo = detalle.match(/at least (\d+)/)?.[1];
@@ -1127,6 +1124,17 @@ function evaluarContrasena(clave) {
     numero: /\d/.test(clave),
   };
 }
+
+document.querySelectorAll('.btn-ver-contrasena').forEach(boton => {
+  boton.addEventListener('click', () => {
+    const campo = document.getElementById(boton.dataset.objetivo);
+    const mostrar = campo.type === 'password';
+    campo.type = mostrar ? 'text' : 'password';
+    boton.setAttribute('aria-pressed', String(mostrar));
+    boton.setAttribute('aria-label', mostrar ? 'Ocultar contraseña' : 'Mostrar contraseña');
+    boton.querySelector('.material-symbols-outlined').textContent = mostrar ? 'visibility_off' : 'visibility';
+  });
+});
 
 document.getElementById('nueva-contrasena').addEventListener('input', (e) => {
   const cumple = evaluarContrasena(e.target.value);
@@ -1170,7 +1178,7 @@ document.getElementById('form-nueva-contrasena').addEventListener('submit', asyn
 
 (async function iniciarApp() {
   prepararLogin();
-  // Despierta la API de Render mientras la persona escribe sus credenciales.
+  // Adelanta la conexión con la API.
   fetch(`${API_URL}/`).catch(() => {});
 
   const manejadoPorEnlaceEspecial = await manejarEnlaceEspecial();
@@ -1212,12 +1220,12 @@ document.getElementById('form-login').addEventListener('submit', async (e) => {
     }
 
     if (!(await cargarUsuarioActual())) {
-      if (!mensajeError.textContent) mensajeError.textContent = 'No se pudo cargar tu perfil. Revisa tu conexión e intenta de nuevo.';
+      if (!mensajeError.textContent) mensajeError.textContent = 'No se pudo cargar tu perfil. Intenta de nuevo.';
       return;
     }
     await entrarAlSistema();
   } catch {
-    mensajeError.textContent = 'No se pudo iniciar sesión. Revisa tu conexión e intenta de nuevo.';
+    mensajeError.textContent = 'No se pudo iniciar sesión. Revisa tu conexión.';
   } finally {
     setLoginLoading(false);
   }
@@ -1231,11 +1239,11 @@ document.getElementById('link-recuperar').addEventListener('click', async () => 
     redirectTo: `${window.location.origin}/`,
   });
   if (error?.status === 429 || error?.code === 'over_email_send_rate_limit') {
-    await mostrarAlerta('Espera unos minutos', 'Se pidieron demasiados correos de recuperación. Intenta de nuevo más tarde.');
+    await mostrarAlerta('Espera unos minutos', 'Demasiados intentos. Intenta más tarde.');
   } else if (error) {
-    await mostrarAlerta('Error', 'No se pudo enviar el correo de recuperación. Revisa que el correo esté bien escrito.');
+    await mostrarAlerta('Error', 'No se pudo enviar el correo. Revisa que esté bien escrito.');
   } else {
-    await mostrarAlerta('Correo enviado', 'Revisa tu bandeja de entrada para restablecer tu contraseña.');
+    await mostrarAlerta('Correo enviado', 'Revisa tu bandeja de entrada.');
   }
 });
 
@@ -1377,7 +1385,7 @@ async function cargarSintomas() {
     fadeIn('.btn-sintoma', { y: 8, stagger: 0.02, duration: 0.3 });
   } catch (error) {
     console.error('Error cargando síntomas:', error);
-    await mostrarAlerta('Sin conexión', 'No se pudo conectar con el servidor. Verifica que la API esté corriendo.');
+    await mostrarAlerta('Sin conexión', 'No se pudo conectar con el servidor.');
   }
 }
 
@@ -1394,12 +1402,12 @@ function toggleSintoma(btn, nombre) {
 
 document.getElementById('btn-analizar').addEventListener('click', async () => {
   if (!pacienteActual) {
-    await mostrarAlerta('Falta el paciente', 'Seleccione o registre un paciente antes de continuar.');
+    await mostrarAlerta('Falta el paciente', 'Seleccione o registre un paciente.');
     irAPantallaPaciente();
     return;
   }
   if (sintomasSeleccionados.length === 0) {
-    await mostrarAlerta('Sin síntomas', 'Debe seleccionar al menos un síntoma antes de continuar.');
+    await mostrarAlerta('Sin síntomas', 'Seleccione al menos un síntoma.');
     return;
   }
 
@@ -1925,14 +1933,14 @@ async function cargarPanelAdmin() {
         btn.addEventListener('click', async () => {
           const confirmado = await mostrarConfirmacion(
             'Reenviar enlace',
-            `Se enviará a ${btn.dataset.correo} un correo con un enlace nuevo para crear su contraseña.`,
+            `Se enviará un enlace nuevo a ${btn.dataset.correo}.`,
             'Enviar'
           );
           if (!confirmado) return;
           btn.disabled = true;
           try {
             await apiFetch(`/api/usuarios/${btn.dataset.id}/reenviar-enlace`, { method: 'POST' });
-            await mostrarAlerta('Enlace enviado', `Se envió el correo a ${btn.dataset.correo}. El enlace sirve una sola vez.`);
+            await mostrarAlerta('Enlace enviado', `Se envió el correo a ${btn.dataset.correo}.`);
           } catch (error) {
             await mostrarAlerta('No se pudo enviar', error.message || 'No se pudo enviar el enlace.');
           } finally {

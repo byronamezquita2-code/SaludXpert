@@ -1,3 +1,4 @@
+-- 002 — Registrar quién confirmó o descartó cada diagnóstico.
 
 alter table public.consultas
   add column if not exists actualizado_por uuid references public.usuarios(id);

@@ -987,7 +987,7 @@ body { font-family: 'Inter', sans-serif; }
   .nombre-enfermedad { font-size: 24px; }
 }
 
-/* ============ SISTEMA VISUAL PREMIUM — VISTAS INTERNAS ============ */
+/* ============ VISTAS INTERNAS ============ */
 :root {
   --app-primary: #0a62d7;
   --app-primary-strong: #0747a6;
@@ -1765,7 +1765,7 @@ body {
   .sidebar-brand-wordmark, .sidebar-nav { transform: none !important; }
 }
 
-/* ============ SHINY CTA — BOTONES PRINCIPALES ============ */
+/* ============ BOTONES PRINCIPALES ============ */
 @property --gradient-angle {
   syntax: "<angle>";
   initial-value: 0deg;
@@ -2350,7 +2350,7 @@ html[data-theme="dark"] #app-dialog::backdrop { background: rgba(0, 3, 8, 0.7); 
   html[data-theme="dark"] .shell-content label { color: #fff !important; }
 }
 
-/* ============ GESTIÓN DE USUARIOS: acciones y vista móvil ============ */
+/* ============ GESTIÓN DE USUARIOS ============ */
 #tabla-usuarios-body td { vertical-align: middle; }
 #tabla-usuarios-body td.celda-acciones { text-align: right; }
 
@@ -2413,7 +2413,7 @@ html[data-theme="dark"] .banner-paciente .paciente-antecedente strong { color: #
   .acciones-usuario { display: flex; justify-content: flex-start; }
 }
 
-/* ============ AVISOS: privacidad, inactividad y conexión lenta ============ */
+/* ============ AVISOS ============ */
 .login-aviso-privacidad {
   margin: 4px 0 0;
   color: rgba(255, 255, 255, 0.58);
@@ -2491,7 +2491,7 @@ html[data-theme="dark"] .aviso-conexion { border-color: rgba(132, 181, 230, 0.24
   .aviso-inactividad { flex-wrap: wrap; justify-content: center; text-align: center; }
 }
 
-/* ============ SIGNOS DE PELIGRO (Normas MSPAS 2025, Cuadro No. 1) ============ */
+/* ============ SIGNOS DE PELIGRO ============ */
 .shell-content .bg-surface-container-lowest.categoria-peligro { border-color: rgba(186, 26, 26, 0.3) !important; }
 .icono-peligro { background: #ffdad6; color: #ba1a1a; }
 .texto-peligro { margin-top: 0; color: #8c1d18; font-size: 14px; line-height: 1.5; }
@@ -2542,7 +2542,7 @@ html[data-theme="dark"] .alerta-peligro > .material-symbols-outlined { color: #f
 html[data-theme="dark"] .alerta-peligro.alerta-peligro-referir { border-color: rgba(255, 170, 165, 0.35); background: #2a1215; color: #ffdad6; }
 html[data-theme="dark"] .alerta-peligro.alerta-peligro-referir > .material-symbols-outlined { color: #ffaaa5; }
 
-/* ============ CREAR CONTRASEÑA (mismo diseño que el login) ============ */
+/* ============ CREAR CONTRASEÑA ============ */
 :is(#pantalla-nueva-contrasena, #pantalla-mfa) {
   position: relative;
   isolation: isolate;
@@ -2602,7 +2602,7 @@ html[data-theme="dark"] .alerta-peligro.alerta-peligro-referir > .material-symbo
   :is(#pantalla-nueva-contrasena, #pantalla-mfa) .requisitos-contrasena { grid-template-columns: 1fr; }
 }
 
-/* Botón de reenviar enlace: mismo tamaño que el de eliminar, en tono primario. */
+/* Botón de reenviar enlace */
 .btn-icono-usuario {
   display: inline-grid;
   place-items: center;
@@ -2623,13 +2623,13 @@ html[data-theme="dark"] .alerta-peligro.alerta-peligro-referir > .material-symbo
 html[data-theme="dark"] .btn-icono-usuario { border-color: rgba(132, 181, 230, 0.3); color: #8fc3ff; }
 html[data-theme="dark"] .btn-icono-usuario:hover { background: rgba(35, 95, 153, 0.3); }
 
-/* ============ BARRA SUPERIOR: nombre y rol junto al icono ============ */
+/* ============ BARRA SUPERIOR ============ */
 .topbar-user-copy { min-width: 0; max-width: 240px; text-align: right; }
 .topbar-user-copy p { margin: 0; }
 .topbar-usuario-nombre { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .topbar-account .btn-logout { margin-left: 0; }
 
-/* ============ TABLA DE USUARIOS: título Dr./Dra. ============ */
+/* ============ TÍTULO DR./DRA. ============ */
 .celda-rol { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .select-titulo {
   min-height: 30px;
@@ -2654,7 +2654,7 @@ html[data-theme="dark"] .select-titulo { border-color: rgba(132, 181, 230, 0.3);
 .mfa-secreto code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #ffffff; letter-spacing: 0.06em; word-break: break-all; user-select: all; }
 #mfa-codigo { letter-spacing: 0.3em; }
 
-/* ============ HOJA DE REFERENCIA (solo al imprimir) ============ */
+/* ============ HOJA DE REFERENCIA ============ */
 .btn-imprimir-referencia {
   display: inline-flex;
   align-items: center;

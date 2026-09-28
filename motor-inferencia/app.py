@@ -5,8 +5,7 @@ from flask_cors import CORS
 from sentry_sdk.integrations.flask import FlaskIntegration
 from motor import calcular_diagnostico
 
-# Sin SENTRY_DSN el SDK queda inicializado pero no envía nada — seguro de
-# dejar siempre activo, incluso en local/tests.
+# Sin SENTRY_DSN no envía nada.
 sentry_sdk.init(
     dsn=os.environ.get("SENTRY_DSN"),
     environment=os.environ.get("FLASK_ENV", "development"),

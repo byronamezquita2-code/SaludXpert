@@ -1,180 +1,96 @@
 # SaludXpert
 
-Sistema de apoyo al diagnóstico clínico para el Centro de Salud de Salcajá.
-El personal de enfermería registra los síntomas de un paciente, una red
-bayesiana sugiere posibles enfermedades con un nivel de confianza, y un
-médico confirma o descarta la sugerencia dejando el diagnóstico definitivo
-registrado.
+Sistema de apoyo al diagnóstico para el Centro de Salud de Salcajá. Enfermería registra los síntomas, una red bayesiana sugiere enfermedades y un médico confirma o descarta.
 
-## Arquitectura
-
-Cuatro componentes independientes, cada uno con su propio `package.json` /
-`requirements.txt`:
+## Estructura
 
 ```
-frontend/            HTML + CSS + JS vanilla (PWA) — UI clínica
-tools/tailwind/       Compila el CSS de Tailwind hacia frontend/tailwind.css
-api-backend/          Node + Express — API pública, auth y autorización por rol
-motor-inferencia/     Python + Flask + pgmpy — red bayesiana de diagnóstico
-pruebas-validacion/   Cucumber (Gherkin en español) — pruebas de aceptación end-to-end
-supabase/migrations/  Historial de cambios de esquema, aplicados a mano en Supabase
+frontend/             HTML, CSS y JS (PWA)
+tools/tailwind/       Compila frontend/tailwind.css
+api-backend/          Node + Express: API, sesión y roles
+motor-inferencia/     Python + Flask + pgmpy: red bayesiana
+pruebas-validacion/   Pruebas de aceptación (Cucumber)
+supabase/             Migraciones y plantillas de correo
 ```
 
-Flujo de una consulta:
-
 ```
-frontend  →  api-backend (valida JWT de Supabase Auth + rol)
-                 │
-                 ├─→ motor-inferencia (Flask, protegido por X-Internal-Secret)
-                 │       → calcula probabilidades con la red bayesiana
-                 │
-                 └─→ Supabase (guarda la consulta, historial, pacientes)
+frontend → api-backend → motor-inferencia
+                ↓
+             Supabase
 ```
 
-- **Auth**: Supabase Auth (JWT). El frontend nunca habla con `motor-inferencia`
-  directamente — todo pasa por `api-backend`.
-- **Autorización**: roles `enfermeria` / `medico` / `administrador`, aplicados
-  en middlewares de Express (`requireAuth`, `requireMedicoOAdmin`, `requireAdmin`).
-- **Base de datos**: Supabase (Postgres) con RLS *deny-by-default* — el único
-  acceso previsto a las tablas es vía `service_role` desde `api-backend`.
-  Ver [`supabase/migrations/`](supabase/migrations/) para el detalle.
-- **`motor-inferencia`** nunca se expone directamente a internet sin control:
-  arranca y falla (`raise RuntimeError`) si no tiene `INTERNAL_SECRET`
-  configurado, y solo responde a peticiones que traigan ese secreto en el
-  header `X-Internal-Secret` (lo agrega `api-backend` en cada llamada).
-- **Monitoreo**: ambos servicios inicializan Sentry (`SENTRY_DSN`) — si no
-  está configurado, el SDK queda inactivo sin afectar nada. En
-  `api-backend`, cada `catch` que hoy hace `console.error` también manda el
-  error a Sentry con `Sentry.captureException`.
-- **Rate limiting**: `api-backend` limita las rutas `/api/*` a 1000 requests
-  por IP cada 15 minutos (`RATE_LIMIT_MAX`), usando `req.ip` detrás del
-  proxy de Render (`app.set('trust proxy', 1)`). El límite es alto a propósito:
-  todo el personal del centro de salud sale por la misma IP pública.
-- **Cuentas**: un JWT válido no basta. `requireAuth` exige además una fila
-  con `activo = true` en `usuarios`; desactivar a alguien corta su acceso a la
-  API de inmediato. En Supabase debe estar desactivado el auto-registro
-  (Authentication → Sign In / Providers → *Allow new users to sign up*), las
-  cuentas se crean solo por invitación desde el panel de administración.
+- **Sesión:** Supabase Auth. Además del token, se exige una fila activa en `usuarios`; el administrador necesita verificación en dos pasos.
+- **Roles:** `enfermeria`, `medico` y `administrador` (uno solo).
+- **Base de datos:** RLS sin políticas; solo `api-backend` accede con `service_role`.
+- **Motor:** solo responde con el header `X-Internal-Secret`.
+- **Auto-registro:** desactivado en Supabase; las cuentas se crean por invitación.
 
 ## Requisitos
 
-- Node 22+ (usa `node:test`, incluido desde Node 18)
-- Python 3.11 (ver `motor-inferencia/runtime.txt`)
-- Un proyecto de Supabase con el esquema aplicado (ver
-  [`supabase/migrations/README.md`](supabase/migrations/README.md))
+- Node 22+
+- Python 3.11
+- Proyecto de Supabase con las [migraciones](supabase/migrations/README.md) aplicadas
 
-## Levantar el proyecto en local
-
-Cada servicio tiene su propio `.env` (no versionado — pide las credenciales
-reales a quien administre el proyecto en Supabase/Render).
-
-### 1. `motor-inferencia` (puerto 5000)
+## En local
 
 ```bash
+# motor-inferencia (puerto 5000)
 cd motor-inferencia
 python3 -m venv venv && source venv/bin/activate
-pip install -r requirements.txt          # solo lo necesario para correr el servicio
-# pip install -r requirements-dev.txt    # además, si vas a correr los tests (pytest/selenium)
-cp .env.example .env   # completa SUPABASE_URL, SUPABASE_KEY, INTERNAL_SECRET
+pip install -r requirements.txt
+cp .env.example .env
 python app.py
-```
 
-### 2. `api-backend` (puerto 3000)
-
-```bash
+# api-backend (puerto 3000)
 cd api-backend
 npm install
-cp .env.example .env   # completa SUPABASE_URL, SUPABASE_KEY, SUPABASE_SERVICE_KEY,
-                        # MOTOR_URL, INTERNAL_SECRET (debe coincidir con el de arriba),
-                        # ALLOWED_ORIGIN
+cp .env.example .env
 node index.js
-```
 
-### 3. `frontend`
-
-El CSS de Tailwind está precompilado en `frontend/tailwind.css` (no se usa el
-CDN de desarrollo). Si agregas o cambias clases de Tailwind en `index.html` o
-`script.js`, recompílalo y sube el resultado — el CI falla si queda desfasado:
-
-```bash
+# CSS (después de cambiar clases de Tailwind)
 cd tools/tailwind && npm install && npm run css
 ```
 
-Servir el directorio como archivos estáticos (por ejemplo con la extensión
-Live Server de VS Code en `http://127.0.0.1:5500`, que es el origen por
-defecto que acepta `api-backend`). Actualiza `API_URL` en
-[`frontend/script.js`](frontend/script.js) si tu backend no corre en
-`http://localhost:3000`.
+Sirve `frontend/` como archivos estáticos (Live Server en `http://127.0.0.1:5500`) y cambia `API_URL` en `frontend/script.js` si el backend corre en local.
 
 ## Variables de entorno
 
-| Servicio | Variable | Descripción |
+| Servicio | Variable | Uso |
 |---|---|---|
-| `motor-inferencia` | `SUPABASE_URL`, `SUPABASE_KEY` | Lectura de enfermedades/síntomas/relaciones |
-| `motor-inferencia` | `INTERNAL_SECRET` | Debe coincidir con el de `api-backend`; requerido para arrancar |
-| `motor-inferencia` | `ALLOWED_ORIGINS` | Orígenes permitidos por CORS (en la práctica, solo `api-backend` debería llamarlo) |
-| `motor-inferencia` | `PORT` | Puerto (default 5000) |
-| `motor-inferencia` | `TEST_EMAIL`, `TEST_PASSWORD` | Cuenta de prueba usada por `test_sistema_selenium.py` |
-| `api-backend` | `SUPABASE_URL`, `SUPABASE_KEY` | Cliente anónimo |
-| `api-backend` | `SUPABASE_SERVICE_KEY` | Cliente admin (`service_role`) — bypassa RLS, solo vive en el backend |
-| `api-backend` | `MOTOR_URL` | URL del motor de inferencia (local o producción) |
-| `api-backend` | `INTERNAL_SECRET` | Secreto compartido con `motor-inferencia` |
-| `api-backend` | `ALLOWED_ORIGIN` | Orígenes permitidos por CORS, separados por coma |
-| `api-backend` | `PORT` | Puerto (default 3000) |
-| `api-backend` | `SENTRY_DSN` | Opcional — reporte de errores en producción. Sin esto el servidor funciona igual, solo que los errores no se reportan a ningún lado |
-| `api-backend` | `RATE_LIMIT_MAX` | Opcional — requests por IP cada 15 min en rutas `/api` (default 1000) |
-| `motor-inferencia` | `SENTRY_DSN` | Opcional — mismo comportamiento que en `api-backend` |
-| `pruebas-validacion` | `TEST_API_URL` | API contra la que corren los escenarios BDD |
-| `pruebas-validacion` | `TEST_EMAIL`, `TEST_PASSWORD` | Credenciales de un usuario de prueba real en Supabase Auth |
-| `pruebas-validacion` | `SUPABASE_URL`, `SUPABASE_KEY` | Para autenticar al usuario de prueba |
+| motor | `SUPABASE_URL`, `SUPABASE_KEY` | Leer la base de conocimiento |
+| motor | `INTERNAL_SECRET` | Obligatoria; igual a la de la API |
+| motor | `ALLOWED_ORIGINS`, `PORT`, `SENTRY_DSN` | Opcionales |
+| api | `SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_SERVICE_KEY` | Clientes de Supabase |
+| api | `MOTOR_URL`, `INTERNAL_SECRET` | Conexión con el motor |
+| api | `ALLOWED_ORIGIN` | Orígenes permitidos, separados por coma |
+| api | `PORT`, `SENTRY_DSN`, `RATE_LIMIT_MAX` | Opcionales |
+| pruebas | `TEST_API_URL`, `TEST_EMAIL`, `TEST_PASSWORD`, `SUPABASE_URL`, `SUPABASE_KEY` | Pruebas contra una API real |
 
-## Tests
+## Pruebas
 
-| Servicio | Comando | Qué cubre | ¿Necesita credenciales reales? |
-|---|---|---|---|
-| `api-backend` | `cd api-backend && npm test` | Autenticación (401 sin token), autorización por rol (`requireAdmin`/`requireMedicoOAdmin`), validación de datos de paciente, y las rutas de pacientes/consultas/diagnóstico usando un doble de prueba de Supabase (`test/helpers/supabaseStub.js`) | No — usa valores dummy |
-| `motor-inferencia` | `cd motor-inferencia && source venv/bin/activate && pytest test_motor.py` | Lógica de la red bayesiana (`calcular_diagnostico`) | **Sí** — consulta enfermedades/síntomas reales vía Supabase, no está mockeado |
-| `motor-inferencia` | `pytest test_sistema_selenium.py` | UI end-to-end con Chrome real (login, paciente, síntomas, diagnóstico) | **Sí** — requiere `frontend` servido en `127.0.0.1:5500`, `api-backend` y `motor-inferencia` corriendo, y Chrome instalado |
-| `pruebas-validacion` | `cd pruebas-validacion && npx cucumber-js` | Flujo end-to-end contra una API desplegada | **Sí** — API en vivo + usuario de prueba en Supabase Auth |
+| Comando | Qué prueba | Credenciales |
+|---|---|---|
+| `cd api-backend && npm test` | Rutas, roles y validaciones (con un doble de Supabase) | No |
+| `cd motor-inferencia && pytest test_motor.py` | Red bayesiana | Sí |
+| `pytest test_sistema_selenium.py` | Interfaz completa con Chrome | Sí |
+| `cd pruebas-validacion && npx cucumber-js` | Flujo contra la API desplegada | Sí |
 
-`npm test` en `api-backend` es el único que corre en CI (ver
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml)) sin configuración
-adicional. El pytest de `motor-inferencia` está en el pipeline pero se omite
-a menos que el repo tenga la variable de Actions `SUPABASE_TESTS_ENABLED`
-en `true` y los secretos `SUPABASE_URL`/`SUPABASE_KEY` configurados — no es
-un test unitario aislado, así que correrlo en CI implica apuntar a un
-proyecto de Supabase real (idealmente uno de prueba, no producción).
+En CI corren las pruebas de la API y la verificación de `tailwind.css`.
 
 ## Despliegue
 
-- `frontend`: estático en Vercel (`https://salud-xpert.vercel.app`); ese
-  origen debe estar en `ALLOWED_ORIGIN` de `api-backend`. Los headers de
-  seguridad están en [`frontend/vercel.json`](frontend/vercel.json).
-- `api-backend` y `motor-inferencia`: Render (`motor-inferencia/runtime.txt`
-  fija la versión de Python; `gunicorn` está en sus dependencias para
-  producción).
-
-## Migraciones de base de datos
-
-No hay migrador automático. Los cambios de esquema se aplican a mano en el
-SQL Editor de Supabase y quedan documentados como archivos numerados en
-[`supabase/migrations/`](supabase/migrations/) — ese directorio explica el
-orden, qué hace cada uno y cómo verificar qué está aplicado.
+- `frontend`: Vercel (`https://salud-xpert.vercel.app`), se publica al hacer push a `main`. Cabeceras de seguridad en `frontend/vercel.json`.
+- `api-backend` y `motor-inferencia`: Render, despliegue manual.
+- Migraciones: a mano en el SQL Editor de Supabase, antes de desplegar el backend que las usa.
 
 ## Respaldos
 
-Supabase Free no incluye respaldos automáticos. Exporta todas las tablas
-(requiere `SUPABASE_SERVICE_KEY` en `api-backend/.env`):
+Supabase Free no hace respaldos automáticos. Desde `api-backend` (requiere `SUPABASE_SERVICE_KEY`):
 
 ```bash
-cd api-backend
-npm run respaldo:cifrado          # recomendado: un solo archivo .sxbk cifrado (AES-256-GCM)
-npm run respaldo                  # carpeta con JSON en texto plano
+npm run respaldo:cifrado                          # archivo .sxbk cifrado (recomendado)
+npm run respaldo                                  # JSON sin cifrar
 npm run descifrar -- ../respaldos/<archivo>.sxbk
 ```
 
-`respaldo:cifrado` pide una contraseña de 12+ caracteres (sin eco) y no deja
-ninguna copia en claro. Sin esa contraseña el respaldo no se puede abrir:
-guárdala en un gestor de contraseñas. Los respaldos quedan en `respaldos/`
-(ignorado por git) y contienen datos clínicos: cópialos a un disco externo
-y borra los que ya no necesites.
+Guarda la contraseña del respaldo en un gestor de contraseñas y copia los archivos a un disco externo: contienen datos clínicos.

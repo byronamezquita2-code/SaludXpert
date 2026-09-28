@@ -1,7 +1,4 @@
-// Valores dummy para que @supabase/supabase-js pueda instanciar el cliente
-// sin fallar al importar app.js. Ninguna de las pruebas de aquí llega a
-// hacer una llamada real a Supabase (todas se detienen en la capa de auth
-// o prueban funciones puras), así que no hace falta un proyecto real.
+// Valores de prueba: ninguna prueba llama a Supabase real.
 process.env.SUPABASE_URL ||= 'http://localhost:9999';
 process.env.SUPABASE_KEY ||= 'test-anon-key';
 process.env.SUPABASE_SERVICE_KEY ||= 'test-service-key';

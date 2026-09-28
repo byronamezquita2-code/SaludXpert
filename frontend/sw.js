@@ -1,6 +1,4 @@
-// Solo da una pantalla de "Sin conexión" al navegar sin internet. No guarda en
-// caché la app ni la API: siempre se carga la última versión publicada y
-// ningún dato clínico queda almacenado en el dispositivo.
+// Pantalla "Sin conexión"; no guarda la app ni datos clínicos en caché.
 const CACHE = 'saludxpert-offline-v1';
 const PRECACHE = ['offline.html', 'assets/brand/saludxpert-mark.png'];
 const PRECACHE_URLS = PRECACHE.map(ruta => new URL(ruta, self.location).href);

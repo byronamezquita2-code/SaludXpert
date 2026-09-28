@@ -61,9 +61,7 @@ test('requireMedicoOAdmin bloquea con 403 a enfermería', async () => {
 });
 
 test('un médico solo ve usuarios con rol médico (filtrado en el backend)', async () => {
-  // El stub no valida el .eq('rol', 'medico') en sí — lo que se comprueba
-  // aquí es que la ruta no explota y responde 200 para un médico, que es
-  // el rol autorizado a listar (con el filtro aplicado del lado del cliente stub).
+  // El stub no aplica el filtro por rol; solo se comprueba el acceso.
   const app = appConAdmin({
     rol: 'medico',
     tables: {

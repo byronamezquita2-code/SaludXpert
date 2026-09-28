@@ -1,19 +1,5 @@
--- 007 — Permitir eliminar usuarios conservando su historial.
---
--- Hoy consultas.usuario_id, consultas.actualizado_por, pacientes.creado_por y
--- pacientes.actualizado_por apuntan a usuarios(id) sin regla ON DELETE, así
--- que borrar un usuario con consultas o pacientes falla (error 23503).
--- Con esta migración, al borrar un usuario esas columnas quedan en NULL y
--- las consultas y pacientes se conservan.
---
--- Recorre todas las llaves foráneas que apuntan a public.usuarios en vez de
--- nombrarlas, porque consultas.usuario_id viene del esquema base creado desde
--- el dashboard y su constraint no está versionada.
---
--- Verificación previa (lista las FKs afectadas; confdeltype 'a' = sin acción):
---   select conrelid::regclass as tabla, conname, confdeltype
---   from pg_constraint
---   where contype = 'f' and confrelid = 'public.usuarios'::regclass;
+-- 007 — Permitir eliminar usuarios conservando sus consultas y pacientes (ON DELETE SET NULL).
+-- Recorre las FKs hacia usuarios porque la de consultas.usuario_id no está versionada.
 
 do $$
 declare
@@ -35,8 +21,3 @@ begin
     );
   end loop;
 end $$;
-
--- Verificación posterior: todas las filas deben tener confdeltype = 'n' (set null).
---   select conrelid::regclass as tabla, conname, confdeltype
---   from pg_constraint
---   where contype = 'f' and confrelid = 'public.usuarios'::regclass;

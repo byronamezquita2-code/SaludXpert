@@ -1,19 +1,4 @@
-// Doble de prueba mínimo para el cliente de @supabase/supabase-js. No
-// reimplementa PostgREST — solo permite precargar qué debe responder cada
-// llamada a `.from(tabla)`, en orden, para poder probar la lógica de
-// autorización y las rutas de app.js sin pegarle a un Supabase real.
-//
-// Uso:
-//   const supabaseAdmin = createSupabaseStub({
-//     user: { id: 'auth-1' },
-//     tables: {
-//       usuarios: { data: { rol: 'administrador' }, error: null },       // resultado fijo, se repite
-//       pacientes: [                                                       // cola: una respuesta por llamada
-//         { data: { id: 'p1', nombre: 'Ana' }, error: null },
-//         { data: [{ id: 'p1', nombre: 'Ana' }], error: null },
-//       ],
-//     },
-//   });
+// Doble de prueba del cliente de Supabase: cada tabla responde lo que se le precarga.
 
 function nextResult(queues, table) {
   const q = queues[table];

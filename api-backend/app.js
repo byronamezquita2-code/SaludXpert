@@ -8,8 +8,7 @@ const { createClient } = require('@supabase/supabase-js');
 
 dotenv.config();
 
-// Sin SENTRY_DSN el SDK queda inicializado pero no envía nada — así que
-// esto es seguro de dejar siempre activo, incluso en local/tests.
+// Sin SENTRY_DSN no envía nada.
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
   environment: process.env.NODE_ENV || 'development',
@@ -86,9 +85,7 @@ function validarDatosPaciente({ nombre, documento, fecha_nacimiento, alergias, c
   return null;
 }
 
-// El cliente de Supabase se puede inyectar (para tests con dobles de
-// prueba); en producción createApp() se llama sin argumentos y usa los
-// clientes reales construidos desde las variables de entorno.
+// Los clientes de Supabase se inyectan en las pruebas.
 function createApp({ supabase, supabaseAdmin } = {}) {
   const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_KEY;
@@ -96,9 +93,7 @@ function createApp({ supabase, supabaseAdmin } = {}) {
   const clienteSupabaseAdmin = supabaseAdmin || createClient(supabaseUrl, process.env.SUPABASE_SERVICE_KEY);
 
   const app = express();
-  // Render (y la mayoría de PaaS) ponen la app detrás de un proxy — sin
-  // esto, express-rate-limit y req.ip verían siempre la IP interna del
-  // proxy en vez de la del cliente real.
+  // Render está detrás de un proxy; necesario para el límite de peticiones.
   app.set('trust proxy', 1);
   app.disable('x-powered-by');
   app.use((req, res, next) => {
@@ -134,8 +129,7 @@ function createApp({ supabase, supabaseAdmin } = {}) {
   });
   app.use('/api', limiter);
 
-  // El token ya fue validado por getUser; aquí solo se lee su claim "aal"
-  // (aal2 = la sesión pasó la verificación en dos pasos).
+  // aal2 = sesión verificada en dos pasos. El token ya lo validó getUser.
   function nivelDeAutenticacion(token) {
     try {
       return JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString()).aal || null;
@@ -145,13 +139,10 @@ function createApp({ supabase, supabaseAdmin } = {}) {
   }
 
   const requireAuth = crearRequireAuth({ permitirMfaPendiente: false });
-  // Solo para /api/usuarios/me: la app lo necesita para saber que debe pedir el código.
+  // Para /api/usuarios/me, que avisa a la app que debe pedir el código.
   const requireAuthPerfil = crearRequireAuth({ permitirMfaPendiente: true });
 
-  // Un JWT válido de Supabase Auth no basta: el auto-registro público de
-  // Supabase permite crear cuentas, así que además debe existir una fila
-  // activa en "usuarios" (la que crea un administrador al invitar).
-  // El administrador además debe tener la sesión verificada en dos pasos.
+  // Exige una fila activa en "usuarios" y, para el administrador, verificación en dos pasos.
   function crearRequireAuth({ permitirMfaPendiente }) {
     return async function requireAuthMiddleware(req, res, next) {
       try {
@@ -199,7 +190,7 @@ function createApp({ supabase, supabaseAdmin } = {}) {
     };
   }
 
-  // Un fallo al auditar no debe impedir la acción ya realizada; se reporta a Sentry.
+  // Si falla la auditoría, la acción no se revierte.
   async function registrarAuditoria(req, accion, objetivo, detalle = null) {
     try {
       const { error } = await clienteSupabaseAdmin.from('auditoria').insert([{
@@ -320,8 +311,7 @@ function createApp({ supabase, supabaseAdmin } = {}) {
     }
   });
 
-  // Historial de consultas. Por defecto retorna solo el turno de hoy;
-  // ?todas=true trae el historial completo (respetando ?limite=).
+  // Por defecto solo las de hoy; ?todas=true trae el historial.
   app.get('/api/consultas', requireAuth, async (req, res) => {
     try {
       const limite = Math.min(Math.max(parseInt(req.query.limite, 10) || 100, 1), 500);
@@ -510,8 +500,7 @@ function createApp({ supabase, supabaseAdmin } = {}) {
     res.json({ ...req.usuario, mfa_requerida: req.mfaPendiente });
   });
 
-  // Gestión de usuarios. GET visible para médicos y administradores (un
-  // médico solo ve médicos); POST/PATCH solo administrador.
+  // Un médico solo ve médicos; crear y modificar es solo del administrador.
   app.get('/api/usuarios', requireAuth, requireMedicoOAdmin, async (req, res) => {
     try {
       let query = clienteSupabaseAdmin.from('usuarios').select(USUARIO_COLUMNAS_PUBLICAS).order('creado_en', { ascending: false });
@@ -534,7 +523,7 @@ function createApp({ supabase, supabaseAdmin } = {}) {
       const { nombre, correo, rol } = req.body;
       const titulo = req.body.titulo ?? null;
 
-      // Por decisión del centro hay un único administrador; no se crean más desde la app.
+      // El centro tiene un único administrador.
       if (!['medico', 'enfermeria'].includes(rol)) {
         return res.status(400).json({ error: 'Rol inválido — solo se pueden crear usuarios de medicina o enfermería.' });
       }
@@ -548,7 +537,6 @@ function createApp({ supabase, supabaseAdmin } = {}) {
         return res.status(400).json({ error: 'Título inválido — debe ser Dr. o Dra.' });
       }
 
-      // El enlace de la invitación vuelve al mismo frontend desde el que invitó el administrador.
       const origen = allowedOrigins.includes(req.headers.origin) ? `${req.headers.origin}/` : undefined;
       const { data: authData, error: authError } = await clienteSupabaseAdmin.auth.admin.inviteUserByEmail(
         correo,
@@ -627,8 +615,7 @@ function createApp({ supabase, supabaseAdmin } = {}) {
     }
   });
 
-  // Envía un correo de recuperación: lleva a la misma pantalla de "crear contraseña"
-  // que la invitación, y sirve también si la invitación ya venció o se usó.
+  // Correo para crear contraseña cuando la invitación venció o ya se usó.
   app.post('/api/usuarios/:id/reenviar-enlace', requireAuth, requireAdmin, async (req, res) => {
     try {
       const { id } = req.params;
@@ -689,7 +676,7 @@ function createApp({ supabase, supabaseAdmin } = {}) {
         .select('id, auth_id, nombre, correo, rol');
 
       if (error) {
-        // 23503 solo ocurre si falta la migración 007 (FKs hacia usuarios con ON DELETE SET NULL).
+        // Sin la migración 007 las FKs impiden borrar.
         if (error.code === '23503') {
           return res.status(409).json({
             error: 'Este usuario tiene consultas o pacientes registrados y la base de datos aún no permite eliminarlo. Desactívalo en su lugar.',
@@ -722,9 +709,7 @@ function createApp({ supabase, supabaseAdmin } = {}) {
 
   Sentry.setupExpressErrorHandler(app);
 
-  // Error handler final — cubre lo que Sentry re-lanza (p.ej. errores
-  // síncronos no atrapados por un try/catch de arriba) y responde JSON
-  // en vez del HTML por defecto de Express.
+  // Responde JSON en lugar del HTML de Express.
   app.use((err, req, res, next) => {
     console.error('Error no manejado:', err.message);
     res.status(500).json({ error: 'Error interno del servidor.' });

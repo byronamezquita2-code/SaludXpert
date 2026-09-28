@@ -1,4 +1,4 @@
-// Archivo externo (no inline) porque la CSP de vercel.json bloquea scripts inline.
+// Externo porque la CSP bloquea scripts inline.
 try {
   const savedTheme = localStorage.getItem('saludxpert-theme');
   const initialTheme = savedTheme === 'dark' ? 'dark' : 'light';

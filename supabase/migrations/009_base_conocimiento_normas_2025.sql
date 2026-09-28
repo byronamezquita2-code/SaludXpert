@@ -1,27 +1,5 @@
--- 009 — Base de conocimiento alineada con las Normas de Atención Integral (MSPAS 2025).
---
--- Fuente: "Normas de Atención Integral para la Red Integrada de Servicios de
--- Salud", MSPAS/DNPAP 2025, Módulo 3 Niñez. Las páginas citadas son las
--- impresas en el libro.
---
--- Qué hace (solo AGREGA; no cambia ni borra valores existentes):
---   1. Marca los signos de peligro del Cuadro No. 1 (pág. 266):
---      nivel_alerta = 'referir' (traslado urgente a hospital) o
---      'atencion_inmediata' (atención inmediata en el servicio).
---   2. Agrega síntomas que el libro usa para distinguir enfermedades y que
---      faltaban (p. ej. exudado amigdalino, ganglios del cuello).
---   3. Agrega Escabiosis (B86, pág. 402), a la que corresponde "Picazón en
---      la piel" (ver migración 005).
---   4. Reubica síntomas urinarios, de oído y de piel en su propia categoría.
---
--- IMPORTANTE: el libro lista signos y síntomas pero NO da probabilidades.
--- Los valores numéricos de abajo son estimaciones a partir del texto
--- ("puede o no haber" → valores bajos). Deben ser revisados por un médico.
---
--- Verificación previa (las tres columnas id deben tener default o identity):
---   select table_name, column_default, is_identity from information_schema.columns
---   where table_schema = 'public' and column_name = 'id'
---     and table_name in ('sintomas', 'enfermedades', 'enfermedad_sintoma');
+-- 009 — Base de conocimiento alineada con las Normas de Atención Integral MSPAS 2025 (Módulo Niñez).
+-- Solo agrega datos. Las probabilidades son estimaciones y deben validarse con un médico.
 
 begin;
 
@@ -29,8 +7,7 @@ alter table public.sintomas
   add column if not exists nivel_alerta text
   check (nivel_alerta in ('referir', 'atencion_inmediata'));
 
--- sintomas_categoria_check venía del esquema base (creado desde el dashboard,
--- no versionado) y solo permitía 'respiratorio', 'gastrointestinal', 'general'.
+-- El check original solo permitía respiratorio, gastrointestinal y general.
 alter table public.sintomas drop constraint if exists sintomas_categoria_check;
 alter table public.sintomas add constraint sintomas_categoria_check
   check (categoria in ('respiratorio', 'gastrointestinal', 'general', 'urinario', 'oido', 'piel', 'peligro'));
@@ -42,7 +19,6 @@ update public.sintomas set categoria = 'oido'
 update public.sintomas set categoria = 'piel'
   where nombre in ('Picazón en la piel', 'Lesiones o costras en la piel');
 
--- Cuadro No. 1, columna "atención inmediata en el establecimiento".
 update public.sintomas set nivel_alerta = 'atencion_inmediata'
   where nombre = 'Dificultad para respirar';
 
@@ -140,9 +116,3 @@ where not exists (
 );
 
 commit;
-
--- Verificación posterior:
---   select count(*) from public.sintomas;             -- 23 + 22 = 45
---   select count(*) from public.enfermedades;         -- 12
---   select count(*) from public.enfermedad_sintoma;   -- 47 + 35 = 82
---   select nombre, nivel_alerta from public.sintomas where nivel_alerta is not null;

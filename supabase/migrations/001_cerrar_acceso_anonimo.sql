@@ -1,3 +1,4 @@
+-- 001 — Cerrar el acceso anónimo a usuarios y consultas.
 
 drop policy if exists "Lectura usuarios publico" on public.usuarios;
 drop policy if exists "Insertar usuarios publico" on public.usuarios;

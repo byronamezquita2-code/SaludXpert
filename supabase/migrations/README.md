@@ -1,76 +1,59 @@
-# Migraciones — SaludXpert
+# Migraciones
 
-SQL aplicado manualmente en el SQL Editor de Supabase, en el orden numerado
-de este directorio. No hay migrador automático — cada archivo se corre a
-mano y luego se hace commit para dejar constancia de qué cambió y por qué.
+Se aplican a mano, en orden, en el SQL Editor de Supabase. El esquema base se creó desde el dashboard y no tiene archivo.
 
-El esquema base (tablas `enfermedades`, `sintomas`, `enfermedad_sintoma`,
-`usuarios`, `consultas` y las políticas RLS originales) se creó directamente
-desde el dashboard de Supabase antes de empezar a versionar este SQL, así
-que no tiene un archivo aquí — es el estado sobre el que actúa
-`001_cerrar_acceso_anonimo.sql`. A partir de estos 4 archivos, todo cambio
-de esquema nuevo debe agregarse como un archivo numerado en este directorio.
+| # | Qué hace |
+|---|---|
+| 001 | Cierra el acceso anónimo a `usuarios` y `consultas`. |
+| 002 | Agrega `consultas.actualizado_por`. |
+| 003 | Restringe `usuarios.rol` y hace `auth_id` único con FK a `auth.users`. |
+| 004 | Crea la tabla `pacientes` y la enlaza a `consultas`. |
+| 005 | Quita la relación Impétigo → "Picazón en la piel". |
+| 006 | Trazabilidad de pacientes, CUI/DPI único y `usuarios.activo` obligatorio. |
+| 007 | FKs hacia `usuarios` con `ON DELETE SET NULL`. |
+| 008 | Tabla `auditoria`. |
+| 009 | Base de conocimiento según las Normas MSPAS 2025 y signos de peligro. |
+| 010 | `usuarios.titulo` (Dr. / Dra.). |
 
-## Archivos
-
-| # | Archivo | Qué hace |
-|---|---|---|
-| 001 | `cerrar_acceso_anonimo.sql` | Elimina las políticas RLS públicas de `usuarios` y `consultas` (lectura/escritura anónima) — el acceso queda restringido a `service_role` desde el backend. |
-| 002 | `fase2_consultas_actualizado_por.sql` | Agrega `consultas.actualizado_por` (FK a `usuarios`) para trazar quién confirmó o descartó un diagnóstico. |
-| 003 | `fase3_hardening_usuarios.sql` | Agrega constraints a `usuarios`: `rol` limitado a los 3 valores válidos, `auth_id` único y con FK a `auth.users`. Incluye queries de verificación previa — no aplicar si esas queries devuelven filas. |
-| 004 | `fase5_pacientes.sql` | Crea la tabla `pacientes` (con antecedentes clínicos) y la enlaza a `consultas` vía `paciente_id`. RLS deny-by-default, igual que el resto. |
-| 006 | `produccion_pacientes_y_usuarios.sql` | Agrega `creado_por`/`actualizado_por`/`actualizado_en` a `pacientes`, hace único el CUI/DPI (`documento`) y vuelve obligatorio `usuarios.activo`. Incluye consultas de verificación previa. |
-| 007 | `eliminar_usuarios_conserva_historial.sql` | Cambia todas las FKs hacia `usuarios` a `ON DELETE SET NULL`, para poder eliminar un usuario conservando sus consultas y pacientes. |
-| 008 | `auditoria.sql` | Crea la tabla `auditoria` (quién creó, activó/desactivó o eliminó usuarios y cuándo). RLS deny-by-default. |
-| 009 | `base_conocimiento_normas_2025.sql` | Alinea la base de conocimiento con las Normas MSPAS 2025 (Módulo Niñez): signos de peligro del Cuadro No. 1 (`sintomas.nivel_alerta`), 22 síntomas y 35 relaciones nuevas, Escabiosis (B86) y categorías urinario/oído/piel. Solo agrega; probabilidades pendientes de validación médica. |
-
-## Cómo verificar qué ya está aplicado
-
-Corre esto en el SQL Editor de Supabase — te dice, para cada migración, si
-ya está aplicada:
+## Verificar qué está aplicado
 
 ```sql
--- 001: ¿siguen existiendo las políticas públicas? (si esto no devuelve filas, 001 ya está aplicada)
+-- 001: no debe devolver filas
 select policyname from pg_policies
-where tablename in ('usuarios', 'consultas')
-  and policyname like '%publico%';
+where tablename in ('usuarios', 'consultas') and policyname like '%publico%';
 
--- 002: ¿existe la columna actualizado_por?
+-- 002
 select column_name from information_schema.columns
 where table_schema = 'public' and table_name = 'consultas' and column_name = 'actualizado_por';
 
--- 003: ¿existen las constraints de hardening?
+-- 003
 select conname from pg_constraint
 where conrelid = 'public.usuarios'::regclass
   and conname in ('usuarios_rol_check', 'usuarios_auth_id_unique', 'usuarios_auth_id_fkey');
 
--- 004: ¿existe la tabla pacientes?
+-- 004
 select table_name from information_schema.tables
 where table_schema = 'public' and table_name = 'pacientes';
 
--- 006: ¿existen las columnas de trazabilidad y el índice único?
-select column_name from information_schema.columns
-where table_schema = 'public' and table_name = 'pacientes'
-  and column_name in ('creado_por', 'actualizado_por', 'actualizado_en');
+-- 005: no debe devolver filas
+select * from public.enfermedad_sintoma where id = 101;
+
+-- 006
 select indexname from pg_indexes where indexname = 'pacientes_documento_unico';
 
--- 007: ¿las FKs hacia usuarios son ON DELETE SET NULL? (todas deben tener confdeltype = 'n')
+-- 007: todas con confdeltype = 'n'
 select conrelid::regclass as tabla, conname, confdeltype from pg_constraint
 where contype = 'f' and confrelid = 'public.usuarios'::regclass;
 
--- 008: ¿existe la tabla auditoria?
+-- 008
 select table_name from information_schema.tables
 where table_schema = 'public' and table_name = 'auditoria';
+
+-- 009: 45 síntomas, 12 enfermedades, 82 relaciones
+select (select count(*) from public.sintomas), (select count(*) from public.enfermedades),
+       (select count(*) from public.enfermedad_sintoma);
+
+-- 010
+select column_name from information_schema.columns
+where table_schema = 'public' and table_name = 'usuarios' and column_name = 'titulo';
 ```
-
-Si alguna consulta no devuelve lo esperado, corre el archivo correspondiente
-(en orden, 001 → 008) en el SQL Editor.
-
-## Aplicar una migración nueva
-
-1. Escribe el archivo como `NNN_descripcion_corta.sql`, siguiendo el número
-   siguiente disponible.
-2. Corre las queries de verificación previa que incluya (si aplica).
-3. Ejecútalo en el SQL Editor de Supabase.
-4. Corre la verificación posterior que incluya.
-5. Haz commit del archivo — es la única constancia de ese cambio.
