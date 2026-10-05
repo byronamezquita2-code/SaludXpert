@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://saludxpert-api.onrender.com" crossorigin>
 <!-- Solo los íconos usados (15 KB en vez de 1 MB). Al agregar un ícono nuevo, añádelo a icon_names en orden alfabético. -->
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400..500,0..1&icon_names=accessibility_new,add,add_circle,admin_panel_settings,arrow_forward,assignment,bar_chart,check,close,dark_mode,delete,dermatology,emergency,forward_to_inbox,gastroenterology,group,groups,hearing,history,info,light_mode,list_alt,local_hospital,lock,lock_reset,logout,mail,nephrology,person,pin,print,priority_high,pulmonology,timer,visibility,visibility_off,vital_signs,warning&display=block" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400..500,0..1&icon_names=accessibility_new,add,add_circle,admin_panel_settings,arrow_forward,assignment,bar_chart,check,close,dark_mode,delete,dermatology,edit,emergency,forward_to_inbox,gastroenterology,group,groups,hearing,history,info,light_mode,list_alt,local_hospital,lock,lock_reset,logout,mail,nephrology,patient_list,person,pin,print,priority_high,pulmonology,search,timer,visibility,visibility_off,vital_signs,warning&display=block" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="tailwind.css">
 <link rel="stylesheet" href="style.css">
@@ -451,6 +451,29 @@
             <div class="w-16 h-1 bg-primary rounded-full mt-2"></div>
           </div>
           <div id="lista-historial" class="flex flex-col gap-md"></div>
+        </div>
+      </main>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PACIENTES ============ -->
+<div id="pantalla-pacientes" class="pantalla">
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar-pacientes"></aside>
+    <div class="shell-main">
+      <header class="topbar justify-between" id="topbar-pacientes"></header>
+      <main class="shell-content">
+        <div class="flex flex-col w-full p-4 md:p-margin-desktop gap-xl max-w-7xl mx-auto">
+          <div class="flex flex-col gap-sm">
+            <h1 class="font-display-lg text-display-lg text-primary">Pacientes</h1>
+            <p class="text-body-lg font-body-lg text-on-surface-variant" id="resumen-pacientes">Pacientes registrados en el centro de salud.</p>
+          </div>
+          <div class="bg-surface-container-lowest rounded-xl shadow-sm p-lg flex flex-col gap-md">
+            <label class="text-label-md text-on-surface" for="filtro-pacientes">Filtrar por nombre o CUI/DPI</label>
+            <input id="filtro-pacientes" type="search" placeholder="Escriba para filtrar..." autocomplete="off" class="w-full px-4 py-3 bg-surface rounded-lg border border-outline-variant focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-body-lg text-on-surface transition-all">
+          </div>
+          <div id="lista-pacientes" class="flex flex-col gap-md"></div>
         </div>
       </main>
     </div>

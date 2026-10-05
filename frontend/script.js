@@ -243,16 +243,23 @@ function precargar(...paths) {
 // JSON de lo que hay en pantalla, para no redibujar si nada cambió.
 let historialMostrado = null;
 let adminMostrado = null;
+let pacientesMostrados = null;
 // Solo se dibuja la respuesta de la última petición.
 let historialPeticion = 0;
 let adminPeticion = 0;
+let pacientesPeticion = 0;
 
 function limpiarDatosDeSesion() {
   cacheApi.clear();
   historialMostrado = null;
   adminMostrado = null;
+  pacientesMostrados = null;
+  listaPacientes = [];
   historialPeticion++;
   adminPeticion++;
+  pacientesPeticion++;
+  document.getElementById('lista-pacientes').innerHTML = '';
+  document.getElementById('filtro-pacientes').value = '';
   document.getElementById('lista-historial').innerHTML = '';
   document.getElementById('tabla-usuarios-body').innerHTML = '';
   document.getElementById('diagnosticos-dia-container').innerHTML = '';
@@ -617,6 +624,7 @@ function mostrarPantalla(id) {
     'pantalla-sintomas': 'nav-nueva',
     'pantalla-resultado': 'nav-nueva',
     'pantalla-historial': 'nav-historial',
+    'pantalla-pacientes': 'nav-pacientes',
     'pantalla-admin': 'nav-admin',
   };
   const activo = mapa[id];
@@ -700,6 +708,10 @@ function sidebarHTML(rol, contexto = 'app') {
         <span class="nav-link-icon material-symbols-outlined" aria-hidden="true">history</span>
         <span class="nav-link-label">Historial</span>
       </span>
+      <span class="nav-link nav-pacientes" id="nav-pacientes-link" role="button" tabindex="0" aria-label="Pacientes">
+        <span class="nav-link-icon material-symbols-outlined" aria-hidden="true">patient_list</span>
+        <span class="nav-link-label">Pacientes</span>
+      </span>
       ${adminLink}
       <div class="theme-control">
         <span class="theme-control-label">Aspecto visual</span>
@@ -736,7 +748,7 @@ function topbarHTML() {
 
 function inyectarShell(rol) {
   iniciarControlInactividad();
-  const pantallas = ['paciente', 'sintomas', 'resultado', 'historial', 'admin'];
+  const pantallas = ['paciente', 'sintomas', 'resultado', 'historial', 'pacientes', 'admin'];
   pantallas.forEach(p => {
     const sidebar = document.getElementById(`sidebar-${p}`);
     const topbar = document.getElementById(`topbar-${p}`);
@@ -867,6 +879,14 @@ function registrarEventosShell() {
     el.addEventListener('click', () => {
       mostrarPantalla('pantalla-historial');
       cargarHistorial();
+    });
+    activarConTeclado(el);
+  });
+
+  document.querySelectorAll('#nav-pacientes-link').forEach(el => {
+    el.addEventListener('pointerenter', () => precargar(RUTA_LISTA_PACIENTES));
+    el.addEventListener('click', () => {
+      irAListaPacientes();
     });
     activarConTeclado(el);
   });
@@ -1308,9 +1328,11 @@ document.getElementById('link-recuperar').addEventListener('click', async () => 
   }
 });
 
-function entrarModoEdicionPaciente(p) {
+// volverALista: al guardar o cancelar regresa a Pacientes en vez de seguir con la consulta.
+function entrarModoEdicionPaciente(p, { volverALista = false } = {}) {
   const form = document.getElementById('form-nuevo-paciente');
   form.dataset.editandoId = p.id;
+  form.dataset.volverALista = volverALista ? 'true' : '';
 
   document.getElementById('paciente-nombre').value = p.nombre || '';
   document.getElementById('paciente-documento').value = p.documento || '';
@@ -1320,7 +1342,7 @@ function entrarModoEdicionPaciente(p) {
   document.getElementById('paciente-medicamentos').value = p.medicamentos_actuales || '';
 
   document.getElementById('texto-form-paciente').textContent = `Editando a ${p.nombre}`;
-  document.querySelector('#btn-guardar-paciente .shiny-cta-content').textContent = 'Guardar cambios y continuar';
+  document.querySelector('#btn-guardar-paciente .shiny-cta-content').textContent = volverALista ? 'Guardar cambios' : 'Guardar cambios y continuar';
   document.getElementById('btn-cancelar-edicion-paciente').style.display = '';
 
   form.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1329,6 +1351,7 @@ function entrarModoEdicionPaciente(p) {
 function salirModoEdicionPaciente() {
   const form = document.getElementById('form-nuevo-paciente');
   form.dataset.editandoId = '';
+  form.dataset.volverALista = '';
   form.reset();
 
   document.getElementById('texto-form-paciente').textContent = 'o registre uno nuevo';
@@ -1336,7 +1359,11 @@ function salirModoEdicionPaciente() {
   document.getElementById('btn-cancelar-edicion-paciente').style.display = 'none';
 }
 
-document.getElementById('btn-cancelar-edicion-paciente').addEventListener('click', salirModoEdicionPaciente);
+document.getElementById('btn-cancelar-edicion-paciente').addEventListener('click', () => {
+  const volverALista = document.getElementById('form-nuevo-paciente').dataset.volverALista === 'true';
+  salirModoEdicionPaciente();
+  if (volverALista) irAListaPacientes();
+});
 
 document.getElementById('buscar-paciente').addEventListener('input', (e) => {
   const termino = e.target.value.trim();
@@ -1403,13 +1430,19 @@ document.getElementById('form-nuevo-paciente').addEventListener('submit', async 
 
   const form = e.target;
   const editandoId = form.dataset.editandoId;
+  const volverALista = form.dataset.volverALista === 'true';
 
   try {
     const paciente = editandoId
       ? await apiFetch(`/api/pacientes/${editandoId}`, { method: 'PATCH', body: JSON.stringify(cuerpo) })
       : await apiFetch('/api/pacientes', { method: 'POST', body: JSON.stringify(cuerpo) });
 
+    invalidarApi(RUTA_LISTA_PACIENTES);
     salirModoEdicionPaciente();
+    if (volverALista) {
+      irAListaPacientes();
+      return;
+    }
     await seleccionarPaciente(paciente);
   } catch (error) {
     await mostrarAlerta('Error', error.message || 'No se pudo guardar el paciente.');
@@ -1486,7 +1519,7 @@ document.getElementById('btn-analizar').addEventListener('click', async () => {
       body: JSON.stringify({ sintomas: sintomasSeleccionados, paciente_id: pacienteActual.id }),
     });
 
-    invalidarApi('/api/consultas');
+    invalidarApi('/api/consultas', RUTA_LISTA_PACIENTES);
     ultimoResultado = resultado;
     mostrarResultado(resultado);
     mostrarPantalla('pantalla-resultado');
@@ -1836,6 +1869,133 @@ async function cargarHistorial() {
     lista.innerHTML = '<p class="estado-vacio">Error al cargar el historial.</p>';
   }
 }
+
+const RUTA_LISTA_PACIENTES = '/api/pacientes?todos=true';
+const LIMITE_LISTADO_PACIENTES = 500;
+let listaPacientes = [];
+
+function irAListaPacientes() {
+  mostrarPantalla('pantalla-pacientes');
+  cargarPacientes();
+}
+
+// Trae el listado completo; el filtro se aplica en el navegador para que responda al instante.
+async function cargarPacientes() {
+  const lista = document.getElementById('lista-pacientes');
+  const peticion = ++pacientesPeticion;
+  const primeraCarga = pacientesMostrados === null;
+  if (primeraCarga) lista.innerHTML = '<p class="estado-vacio">Cargando...</p>';
+
+  try {
+    const pacientes = await apiGet(RUTA_LISTA_PACIENTES);
+    if (peticion !== pacientesPeticion) return;
+
+    const firma = JSON.stringify(pacientes);
+    if (firma === pacientesMostrados) return;
+    pacientesMostrados = firma;
+    listaPacientes = pacientes;
+
+    document.getElementById('resumen-pacientes').textContent = pacientes.length >= LIMITE_LISTADO_PACIENTES
+      ? `Se muestran los primeros ${LIMITE_LISTADO_PACIENTES} pacientes en orden alfabético.`
+      : `${pacientes.length} ${pacientes.length === 1 ? 'paciente registrado' : 'pacientes registrados'}.`;
+    renderListaPacientes(primeraCarga);
+  } catch (error) {
+    if (peticion !== pacientesPeticion) return;
+    console.error('Error cargando pacientes:', error);
+    pacientesMostrados = null;
+    lista.innerHTML = '<p class="estado-vacio">Error al cargar los pacientes.</p>';
+  }
+}
+
+function sinAcentos(texto) {
+  return (texto || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function renderListaPacientes(animar = false) {
+  const lista = document.getElementById('lista-pacientes');
+  const filtro = sinAcentos(document.getElementById('filtro-pacientes').value.trim());
+  const visibles = filtro
+    ? listaPacientes.filter(p => sinAcentos(p.nombre).includes(filtro) || sinAcentos(p.documento).includes(filtro))
+    : listaPacientes;
+
+  if (visibles.length === 0) {
+    lista.innerHTML = `<p class="estado-vacio">${filtro ? 'Ningún paciente coincide con el filtro.' : 'No hay pacientes registrados.'}</p>`;
+    return;
+  }
+
+  const puedeBorrar = ['medico', 'administrador'].includes(usuarioActual?.rol);
+  lista.innerHTML = visibles.map(p => {
+    const nombre = escaparHtml(p.nombre);
+    const datos = [
+      p.documento ? `CUI/DPI: ${escaparHtml(p.documento)}` : '',
+      p.fecha_nacimiento ? edadDesde(p.fecha_nacimiento) : '',
+      `${p.total_consultas} ${p.total_consultas === 1 ? 'consulta' : 'consultas'}`,
+    ].filter(Boolean).join(' · ');
+
+    return `
+      <div class="historial-card paciente-card" data-id="${p.id}">
+        <div class="paciente-card-datos">
+          <span class="paciente-nombre">${nombre}</span>
+          <div class="historial-sintomas">${datos}</div>
+          ${p.alergias ? `<div class="historial-sintomas paciente-card-alergia">⚠ Alergias: ${escaparHtml(p.alergias)}</div>` : ''}
+        </div>
+        <div class="acciones-usuario">
+          <button type="button" class="link-secundario" data-accion="consulta">Nueva consulta</button>
+          <button type="button" class="btn-icono-usuario" data-accion="editar" aria-label="Editar a ${nombre}" title="Editar paciente">
+            <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+          </button>
+          ${puedeBorrar ? `<button type="button" class="btn-eliminar-usuario" data-accion="borrar" aria-label="Borrar a ${nombre}" title="Borrar paciente">
+            <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+          </button>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  if (animar) fadeIn('.paciente-card', { stagger: 0.03 });
+}
+
+document.getElementById('filtro-pacientes').addEventListener('input', () => renderListaPacientes());
+
+document.getElementById('lista-pacientes').addEventListener('click', async (e) => {
+  const boton = e.target.closest('button[data-accion]');
+  if (!boton) return;
+  const paciente = listaPacientes.find(p => p.id === boton.closest('.paciente-card')?.dataset.id);
+  if (!paciente) return;
+
+  if (boton.dataset.accion === 'consulta') {
+    irAPantallaPaciente();
+    await seleccionarPaciente(paciente);
+    return;
+  }
+
+  if (boton.dataset.accion === 'editar') {
+    irAPantallaPaciente();
+    entrarModoEdicionPaciente(paciente, { volverALista: true });
+    return;
+  }
+
+  const total = paciente.total_consultas;
+  const confirmado = await mostrarConfirmacion(
+    'Borrar paciente',
+    total
+      ? `¿Borrar a ${paciente.nombre}? También se borrarán sus ${total} ${total === 1 ? 'consulta' : 'consultas'} del historial. Esta acción no se puede deshacer.`
+      : `¿Borrar a ${paciente.nombre}? Esta acción no se puede deshacer.`,
+    'Borrar'
+  );
+  if (!confirmado) return;
+
+  boton.disabled = true;
+  try {
+    await apiFetch(`/api/pacientes/${paciente.id}`, { method: 'DELETE' });
+    if (pacienteActual?.id === paciente.id) pacienteActual = null;
+    invalidarApi(RUTA_LISTA_PACIENTES, '/api/consultas');
+    await cargarPacientes();
+  } catch (error) {
+    boton.disabled = false;
+    await mostrarAlerta('No se pudo borrar', error.message || 'No se pudo borrar el paciente.');
+  }
+});
 
 document.getElementById('btn-agregar-usuario').addEventListener('click', async () => {
   const nombre = await mostrarPrompt('Nombre del usuario', 'Nombre completo');

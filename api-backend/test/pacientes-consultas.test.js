@@ -132,3 +132,80 @@ test('POST /api/diagnosticar responde 400 cuando el paciente no existe', async (
 
   assert.equal(res.status, 400);
 });
+
+const USUARIO_MEDICO = { data: { id: 'u2', nombre: 'Luis', correo: 'luis@salud.gob.gt', rol: 'medico', activo: true }, error: null };
+
+function stubConMedico(tables) {
+  return createSupabaseStub({
+    user: AUTH_USER,
+    tables: { usuarios: USUARIO_MEDICO, auditoria: { data: null, error: null }, ...tables },
+  });
+}
+
+test('GET /api/pacientes?todos=true devuelve el listado con el total de consultas', async () => {
+  const app = appConTablas({
+    pacientes: { data: [
+      { id: 'p1', nombre: 'Ana López', consultas: [{ count: 2 }] },
+      { id: 'p2', nombre: 'Beto Pérez', consultas: [{ count: 0 }] },
+    ], error: null },
+  });
+
+  const res = await request(app).get('/api/pacientes?todos=true').set(...AUTH_HEADER);
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body.map(p => [p.nombre, p.total_consultas]), [['Ana López', 2], ['Beto Pérez', 0]]);
+  assert.equal(res.body[0].consultas, undefined);
+});
+
+test('DELETE /api/pacientes/:id está prohibido para enfermería', async () => {
+  const app = appConTablas({});
+  const res = await request(app).delete(`/api/pacientes/${UUID}`).set(...AUTH_HEADER);
+
+  assert.equal(res.status, 403);
+});
+
+test('DELETE /api/pacientes/:id rechaza un identificador inválido', async () => {
+  const app = createApp({ supabaseAdmin: stubConMedico({}) }).app;
+  const res = await request(app).delete('/api/pacientes/no-es-uuid').set(...AUTH_HEADER);
+
+  assert.equal(res.status, 400);
+});
+
+test('DELETE /api/pacientes/:id borra al paciente y deja auditoría con sus consultas', async () => {
+  const supabaseAdmin = stubConMedico({
+    consultas: { count: 3, error: null },
+    pacientes: { data: [{ id: UUID, nombre: 'Ana López', documento: '123' }], error: null },
+  });
+  const app = createApp({ supabaseAdmin }).app;
+
+  const res = await request(app).delete(`/api/pacientes/${UUID}`).set(...AUTH_HEADER);
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.consultas_eliminadas, 3);
+  const auditoria = supabaseAdmin.inserts.find(i => i.table === 'auditoria');
+  assert.equal(auditoria.filas[0].accion, 'paciente_eliminado');
+  assert.equal(auditoria.filas[0].objetivo_id, UUID);
+  assert.deepEqual(auditoria.filas[0].detalle, { nombre: 'Ana López', documento: '123', consultas_eliminadas: 3 });
+});
+
+test('DELETE /api/pacientes/:id responde 404 si el paciente no existe', async () => {
+  const app = createApp({ supabaseAdmin: stubConMedico({
+    consultas: { count: 0, error: null },
+    pacientes: { data: [], error: null },
+  }) }).app;
+
+  const res = await request(app).delete(`/api/pacientes/${UUID}`).set(...AUTH_HEADER);
+
+  assert.equal(res.status, 404);
+});
+
+test('DELETE /api/pacientes/:id responde 409 si falta la migración 011', async () => {
+  const app = createApp({ supabaseAdmin: stubConMedico({
+    consultas: { count: 1, error: null },
+    pacientes: { data: null, error: { code: '23503', message: 'fk' } },
+  }) }).app;
+
+  const res = await request(app).delete(`/api/pacientes/${UUID}`).set(...AUTH_HEADER);
+
+  assert.equal(res.status, 409);
+});

@@ -2716,3 +2716,10 @@ html[data-theme="dark"] .btn-imprimir-referencia { background: #c93a33; }
   .hr-firmas small { font-size: 8pt; }
   .hr-pie { margin-top: 14px; font-size: 7.5pt; text-align: center; }
 }
+
+/* ============ PACIENTES ============ */
+.paciente-card { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px; }
+.paciente-card-datos { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.paciente-card .paciente-nombre { color: var(--app-ink); font-size: 17px; font-weight: 750; letter-spacing: -0.02em; }
+.paciente-card-alergia { color: #ba1a1a !important; font-weight: 600; }
+html[data-theme="dark"] .paciente-card-alergia { color: #ffaaa5 !important; }

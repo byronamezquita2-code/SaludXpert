@@ -29,6 +29,7 @@ Sentry.init({
 const USUARIO_COLUMNAS_PUBLICAS = 'id, nombre, correo, rol, activo, titulo, creado_en';
 const TITULOS_VALIDOS = ['Dr.', 'Dra.'];
 const PACIENTE_COLUMNAS = 'id, nombre, documento, fecha_nacimiento, alergias, condiciones_cronicas, medicamentos_actuales, creado_en';
+const LIMITE_LISTADO_PACIENTES = 500;
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -393,23 +394,32 @@ function createApp({ supabase, supabaseAdmin } = {}) {
     }
   });
 
+  // ?buscar= filtra por nombre o CUI/DPI; ?todos=true trae el listado completo.
   app.get('/api/pacientes', requireAuth, async (req, res) => {
     try {
       const termino = String(req.query.buscar || '').replace(/[^\p{L}\p{N}\s]/gu, '').trim();
+      const listarTodos = req.query.todos === 'true';
 
-      if (!termino) {
+      if (!termino && !listarTodos) {
         return res.json([]);
       }
 
-      const { data, error } = await clienteSupabaseAdmin
+      let query = clienteSupabaseAdmin
         .from('pacientes')
-        .select(PACIENTE_COLUMNAS)
-        .or(`nombre.ilike.%${termino}%,documento.ilike.%${termino}%`)
+        .select(`${PACIENTE_COLUMNAS}, consultas(count)`)
         .order('nombre', { ascending: true })
-        .limit(20);
+        .limit(termino ? 20 : LIMITE_LISTADO_PACIENTES);
 
+      if (termino) {
+        query = query.or(`nombre.ilike.%${termino}%,documento.ilike.%${termino}%`);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
-      res.json(data);
+      res.json(data.map(({ consultas, ...paciente }) => ({
+        ...paciente,
+        total_consultas: consultas?.[0]?.count ?? 0,
+      })));
     } catch (error) {
       console.error('Error GET /api/pacientes:', error.message);
       Sentry.captureException(error);
@@ -471,6 +481,53 @@ function createApp({ supabase, supabaseAdmin } = {}) {
       console.error('Error PATCH /api/pacientes:', error.message);
       Sentry.captureException(error);
       res.status(500).json({ error: 'Error al actualizar paciente.' });
+    }
+  });
+
+  // Borra al paciente y, por la migración 011, todas sus consultas.
+  app.delete('/api/pacientes/:id', requireAuth, requireMedicoOAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      if (!esUuid(id)) {
+        return res.status(400).json({ error: 'Identificador inválido.' });
+      }
+
+      const { count: totalConsultas, error: conteoError } = await clienteSupabaseAdmin
+        .from('consultas')
+        .select('id', { count: 'exact', head: true })
+        .eq('paciente_id', id);
+      if (conteoError) throw conteoError;
+
+      const { data, error } = await clienteSupabaseAdmin
+        .from('pacientes')
+        .delete()
+        .eq('id', id)
+        .select('id, nombre, documento');
+
+      if (error) {
+        // Sin la migración 011 la FK de consultas impide borrar.
+        if (error.code === '23503') {
+          return res.status(409).json({
+            error: 'Este paciente tiene consultas y la base de datos aún no permite borrarlas. Contacta al administrador.',
+          });
+        }
+        throw error;
+      }
+      if (!data || data.length === 0) {
+        return res.status(404).json({ error: 'Paciente no encontrado.' });
+      }
+
+      await registrarAuditoria(req, 'paciente_eliminado', { id: data[0].id }, {
+        nombre: data[0].nombre,
+        documento: data[0].documento,
+        consultas_eliminadas: totalConsultas ?? 0,
+      });
+      res.json({ ok: true, consultas_eliminadas: totalConsultas ?? 0 });
+    } catch (error) {
+      console.error('Error DELETE /api/pacientes:', error.message);
+      Sentry.captureException(error);
+      res.status(500).json({ error: 'Error al borrar el paciente.' });
     }
   });
 

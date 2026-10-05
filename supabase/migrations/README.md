@@ -14,6 +14,7 @@ Se aplican a mano, en orden, en el SQL Editor de Supabase. El esquema base se cr
 | 008 | Tabla `auditoria`. |
 | 009 | Base de conocimiento según las Normas MSPAS 2025 y signos de peligro. |
 | 010 | `usuarios.titulo` (Dr. / Dra.). |
+| 011 | Borrar un paciente borra también sus consultas (`ON DELETE CASCADE`). |
 
 ## Verificar qué está aplicado
 
@@ -56,4 +57,8 @@ select (select count(*) from public.sintomas), (select count(*) from public.enfe
 -- 010
 select column_name from information_schema.columns
 where table_schema = 'public' and table_name = 'usuarios' and column_name = 'titulo';
+
+-- 011: confdeltype = 'c'
+select conname, confdeltype from pg_constraint
+where conrelid = 'public.consultas'::regclass and confrelid = 'public.pacientes'::regclass;
 ```
