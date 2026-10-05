@@ -2131,7 +2131,7 @@ html[data-theme="dark"] .sidebar::before {
 }
 
 html[data-theme="dark"] .sidebar-brand { border-bottom-color: rgba(136, 183, 232, 0.12); }
-html[data-theme="dark"] .sidebar-brand-wordmark { filter: brightness(1.45) saturate(1.08) drop-shadow(0 5px 10px rgba(17, 145, 224, 0.16)); }
+html[data-theme="dark"] .sidebar-brand-wordmark { filter: drop-shadow(0 5px 10px rgba(17, 145, 224, 0.16)); }
 html[data-theme="dark"] .sidebar-brand-toggle:hover { background: rgba(40, 116, 189, 0.12); }
 html[data-theme="dark"] .nav-link { color: #aebcd0; }
 html[data-theme="dark"] .nav-link-icon { background: rgba(67, 151, 237, 0.11); color: #91c8ff; }

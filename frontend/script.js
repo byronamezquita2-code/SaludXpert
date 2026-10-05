@@ -29,6 +29,11 @@ function actualizarControlesTema() {
     control.dataset.activeTheme = tema;
     control.setAttribute('aria-label', tema === 'dark' ? 'Apariencia: modo noche' : 'Apariencia: modo día');
   });
+  // En modo noche "Salud" va en claro; el azul marino no se lee sobre fondo oscuro.
+  const wordmark = tema === 'dark' ? 'assets/brand/saludxpert-wordmark-dark.png' : 'assets/brand/saludxpert-wordmark.png';
+  document.querySelectorAll('.sidebar-brand-wordmark').forEach(img => {
+    if (img.getAttribute('src') !== wordmark) img.setAttribute('src', wordmark);
+  });
 }
 
 function aplicarTema(tema, persistir = true) {
