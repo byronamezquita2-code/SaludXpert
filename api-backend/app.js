@@ -129,13 +129,22 @@ function createApp({ supabase, supabaseAdmin } = {}) {
   });
   app.use('/api', limiter);
 
-  // aal2 = sesión verificada en dos pasos. El token ya lo validó getUser.
-  function nivelDeAutenticacion(token) {
+  // Contenido del token sin verificar; solo se confía en él después de getUser.
+  function leerToken(token) {
     try {
-      return JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString()).aal || null;
+      return JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString()) || {};
     } catch {
-      return null;
+      return {};
     }
+  }
+
+  // Promise.resolve hace que la consulta corra una sola vez aunque se espere dos veces.
+  function buscarUsuarioPorAuthId(authId) {
+    return Promise.resolve(clienteSupabaseAdmin
+      .from('usuarios')
+      .select('id, nombre, correo, rol, activo, titulo')
+      .eq('auth_id', authId)
+      .maybeSingle());
   }
 
   const requireAuth = crearRequireAuth({ permitirMfaPendiente: false });
@@ -153,16 +162,20 @@ function createApp({ supabase, supabaseAdmin } = {}) {
           return res.status(401).json({ error: 'No autenticado — falta el token.' });
         }
 
+        // El perfil se pide junto con la verificación para ahorrar un viaje a Supabase;
+        // solo se usa si el token resulta válido y es del mismo usuario.
+        const claims = leerToken(token);
+        const perfilAnticipado = typeof claims.sub === 'string' ? buscarUsuarioPorAuthId(claims.sub) : null;
+        perfilAnticipado?.then(null, () => {});
+
         const { data, error } = await clienteSupabaseAdmin.auth.getUser(token);
         if (error || !data?.user) {
           return res.status(401).json({ error: 'Token inválido o expirado.' });
         }
 
-        const { data: usuario, error: errorUsuario } = await clienteSupabaseAdmin
-          .from('usuarios')
-          .select('id, nombre, correo, rol, activo, titulo')
-          .eq('auth_id', data.user.id)
-          .maybeSingle();
+        const { data: usuario, error: errorUsuario } = await (
+          claims.sub === data.user.id ? perfilAnticipado : buscarUsuarioPorAuthId(data.user.id)
+        );
 
         if (errorUsuario) throw errorUsuario;
         if (!usuario) {
@@ -172,7 +185,8 @@ function createApp({ supabase, supabaseAdmin } = {}) {
           return res.status(403).json({ error: 'Tu cuenta está desactivada. Contacta al administrador.', codigo: 'cuenta_inactiva' });
         }
 
-        req.mfaPendiente = usuario.rol === 'administrador' && nivelDeAutenticacion(token) !== 'aal2';
+        // aal2 = sesión verificada en dos pasos.
+        req.mfaPendiente = usuario.rol === 'administrador' && claims.aal !== 'aal2';
         if (req.mfaPendiente && !permitirMfaPendiente) {
           return res.status(403).json({ error: 'Verificación en dos pasos requerida.', codigo: 'mfa_requerida' });
         }

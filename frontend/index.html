@@ -10,7 +10,11 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#004d99">
 <script src="theme-init.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://saludxpert-api.onrender.com" crossorigin>
+<!-- Solo los íconos usados (15 KB en vez de 1 MB). Al agregar un ícono nuevo, añádelo a icon_names en orden alfabético. -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400..500,0..1&icon_names=accessibility_new,add,add_circle,admin_panel_settings,arrow_forward,assignment,bar_chart,check,close,dark_mode,delete,dermatology,emergency,forward_to_inbox,gastroenterology,group,groups,hearing,history,info,light_mode,list_alt,local_hospital,lock,lock_reset,logout,mail,nephrology,person,pin,print,priority_high,pulmonology,timer,visibility,visibility_off,vital_signs,warning&display=block" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="tailwind.css">
 <link rel="stylesheet" href="style.css">
@@ -480,14 +484,14 @@
                 <span class="material-symbols-outlined text-[20px]">group</span>
                 <span class="font-label-md text-label-md uppercase tracking-wider" id="label-stat-usuarios">Usuarios activos</span>
               </div>
-              <div class="font-display-lg text-display-lg text-primary" id="stat-usuarios-activos">0</div>
+              <div class="font-display-lg text-display-lg text-primary" id="stat-usuarios-activos">—</div>
             </div>
             <div class="bg-surface-container-lowest p-lg rounded-lg shadow-sm border border-outline-variant flex flex-col gap-sm">
               <div class="flex items-center gap-sm text-on-surface-variant">
                 <span class="material-symbols-outlined text-[20px]">assignment</span>
                 <span class="font-label-md text-label-md uppercase tracking-wider">Consultas hoy</span>
               </div>
-              <div class="font-display-lg text-display-lg text-primary" id="stat-consultas-hoy">0</div>
+              <div class="font-display-lg text-display-lg text-primary" id="stat-consultas-hoy">—</div>
             </div>
           </div>
 
@@ -500,7 +504,7 @@
               </h2>
             </div>
             <div class="p-lg" id="diagnosticos-dia-container">
-              <p class="estado-vacio text-body-md text-on-surface-variant">Sin consultas hoy.</p>
+              <p class="estado-vacio text-body-md text-on-surface-variant">Cargando...</p>
             </div>
           </div>
 

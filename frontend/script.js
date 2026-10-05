@@ -73,6 +73,7 @@ async function cerrarSesionForzada(mensaje) {
   detenerControlInactividad();
   await supabaseClient.auth.signOut();
   usuarioActual = null;
+  limpiarDatosDeSesion();
   mostrarPantalla('pantalla-login');
   document.getElementById('mensaje-error').textContent = mensaje;
   revelarLogin({ focus: false, immediate: true });
@@ -203,6 +204,53 @@ async function apiFetch(path, options = {}) {
   }
 
   return response.json();
+}
+
+// GET compartidos: une peticiones iguales en curso y reutiliza respuestas recientes.
+const cacheApi = new Map();
+
+function apiGet(path, frescuraMs = 10000) {
+  const entrada = cacheApi.get(path);
+  if (entrada && (!entrada.lista || Date.now() - entrada.hora < frescuraMs)) return entrada.promesa;
+
+  const nueva = { lista: false, hora: 0 };
+  nueva.promesa = apiFetch(path).then(datos => {
+    nueva.lista = true;
+    nueva.hora = Date.now();
+    return datos;
+  }, error => {
+    if (cacheApi.get(path) === nueva) cacheApi.delete(path);
+    throw error;
+  });
+  cacheApi.set(path, nueva);
+  return nueva.promesa;
+}
+
+function invalidarApi(...paths) {
+  paths.forEach(path => cacheApi.delete(path));
+}
+
+// Adelanta la petición al pasar el puntero o tocar el enlace.
+function precargar(...paths) {
+  paths.forEach(path => apiGet(path).catch(() => {}));
+}
+
+// JSON de lo que hay en pantalla, para no redibujar si nada cambió.
+let historialMostrado = null;
+let adminMostrado = null;
+// Solo se dibuja la respuesta de la última petición.
+let historialPeticion = 0;
+let adminPeticion = 0;
+
+function limpiarDatosDeSesion() {
+  cacheApi.clear();
+  historialMostrado = null;
+  adminMostrado = null;
+  historialPeticion++;
+  adminPeticion++;
+  document.getElementById('lista-historial').innerHTML = '';
+  document.getElementById('tabla-usuarios-body').innerHTML = '';
+  document.getElementById('diagnosticos-dia-container').innerHTML = '';
 }
 
 const appDialog = document.getElementById('app-dialog');
@@ -804,22 +852,25 @@ function registrarEventosShell() {
   document.addEventListener('keydown', cerrarNavegacionConEscape);
 
   document.querySelectorAll('#nav-nueva-link').forEach(el => {
-    el.addEventListener('click', reiniciarConsulta);
+    el.addEventListener('click', irAPantallaPaciente);
     activarConTeclado(el);
   });
 
+  // La pantalla cambia al instante; los datos llegan después.
   document.querySelectorAll('#nav-historial-link').forEach(el => {
-    el.addEventListener('click', async () => {
-      await cargarHistorial();
+    el.addEventListener('pointerenter', () => precargar('/api/consultas'));
+    el.addEventListener('click', () => {
       mostrarPantalla('pantalla-historial');
+      cargarHistorial();
     });
     activarConTeclado(el);
   });
 
   document.querySelectorAll('#nav-admin-link').forEach(el => {
-    el.addEventListener('click', async () => {
-      await cargarPanelAdmin();
+    el.addEventListener('pointerenter', () => precargar('/api/usuarios', '/api/consultas'));
+    el.addEventListener('click', () => {
       mostrarPantalla('pantalla-admin');
+      cargarPanelAdmin();
     });
     activarConTeclado(el);
   });
@@ -840,6 +891,7 @@ function registrarEventosShell() {
       detenerControlInactividad();
       await supabaseClient.auth.signOut();
       usuarioActual = null;
+      limpiarDatosDeSesion();
       document.getElementById('correo').value = '';
       document.getElementById('contrasena').value = '';
       mostrarPantalla('pantalla-login');
@@ -917,6 +969,8 @@ async function entrarAlSistema() {
   }
   inyectarShell(usuarioActual.rol);
   irAPantallaPaciente();
+  // Los síntomas no cambian durante la sesión; quedan listos para la primera consulta.
+  apiGet('/api/sintomas', Infinity).catch(() => {});
 }
 
 let mfaFactorId = null;
@@ -1022,6 +1076,8 @@ function renderBannerPaciente(elementId) {
 function irAPantallaPaciente() {
   pacienteActual = null;
   sintomasSeleccionados = [];
+  document.querySelectorAll('.btn-sintoma.seleccionado').forEach(b => b.classList.remove('seleccionado'));
+  document.getElementById('contador-sintomas').textContent = '0 síntomas';
   const buscarInput = document.getElementById('buscar-paciente');
   if (buscarInput) buscarInput.value = '';
   const resultados = document.getElementById('resultados-paciente');
@@ -1357,7 +1413,10 @@ document.getElementById('form-nuevo-paciente').addEventListener('submit', async 
 
 async function cargarSintomas() {
   try {
-    listaSintomas = await apiFetch('/api/sintomas');
+    const sintomas = await apiGet('/api/sintomas', Infinity);
+    // Ya dibujados en una consulta anterior.
+    if (sintomas === listaSintomas) return;
+    listaSintomas = sintomas;
 
     const categorias = {};
     ['peligro', 'respiratorio', 'gastrointestinal', 'urinario', 'oido', 'piel', 'general'].forEach(c => {
@@ -1422,6 +1481,7 @@ document.getElementById('btn-analizar').addEventListener('click', async () => {
       body: JSON.stringify({ sintomas: sintomasSeleccionados, paciente_id: pacienteActual.id }),
     });
 
+    invalidarApi('/api/consultas');
     ultimoResultado = resultado;
     mostrarResultado(resultado);
     mostrarPantalla('pantalla-resultado');
@@ -1623,8 +1683,9 @@ document.getElementById('btn-confirmar').addEventListener('click', async () => {
       method: 'PATCH',
       body: JSON.stringify({ decision_medico: 'confirmado' }),
     });
+    invalidarApi('/api/consultas');
     await mostrarAlerta('Confirmado', 'Diagnóstico confirmado y registrado.');
-    reiniciarConsulta();
+    irAPantallaPaciente();
   } catch (error) {
     await mostrarAlerta('Error', error.message || 'No se pudo guardar la confirmación.');
   }
@@ -1644,32 +1705,35 @@ document.getElementById('btn-descartar').addEventListener('click', async () => {
       method: 'PATCH',
       body: JSON.stringify({ decision_medico: 'descartado', diagnostico_definitivo: diagnosticoDefinitivo }),
     });
+    invalidarApi('/api/consultas');
     await mostrarAlerta('Registrado', `Sugerencia descartada. Diagnóstico registrado: ${diagnosticoDefinitivo}`);
-    reiniciarConsulta();
+    irAPantallaPaciente();
   } catch (error) {
     await mostrarAlerta('Error', error.message || 'No se pudo guardar el descarte.');
   }
 });
 
-document.getElementById('btn-nueva-consulta').addEventListener('click', reiniciarConsulta);
+document.getElementById('btn-nueva-consulta').addEventListener('click', irAPantallaPaciente);
 
-function reiniciarConsulta() {
-  document.querySelectorAll('.btn-sintoma').forEach(b => b.classList.remove('seleccionado'));
-  document.getElementById('contador-sintomas').textContent = '0 síntomas';
-  irAPantallaPaciente();
-}
-
-document.getElementById('btn-ver-historial').addEventListener('click', async () => {
-  await cargarHistorial();
+document.getElementById('btn-ver-historial').addEventListener('click', () => {
   mostrarPantalla('pantalla-historial');
+  cargarHistorial();
 });
 
+// Muestra lo último cargado mientras pide datos frescos; solo redibuja si cambiaron.
 async function cargarHistorial() {
   const lista = document.getElementById('lista-historial');
-  lista.innerHTML = '<p class="estado-vacio">Cargando...</p>';
+  const peticion = ++historialPeticion;
+  const primeraCarga = historialMostrado === null;
+  if (primeraCarga) lista.innerHTML = '<p class="estado-vacio">Cargando...</p>';
 
   try {
-    const consultas = await apiFetch('/api/consultas');
+    const consultas = await apiGet('/api/consultas');
+    if (peticion !== historialPeticion) return;
+
+    const firma = JSON.stringify(consultas);
+    if (firma === historialMostrado) return;
+    historialMostrado = firma;
 
     if (consultas.length === 0) {
       lista.innerHTML = '<p class="estado-vacio">No hay consultas registradas en este turno.</p>';
@@ -1740,6 +1804,7 @@ async function cargarHistorial() {
                       body: JSON.stringify({ decision_medico: 'descartado', diagnostico_definitivo: diagnosticoDefinitivo }),
                     });
                   }
+                  invalidarApi('/api/consultas');
                   await cargarHistorial();
                 } catch (error) {
                   await mostrarAlerta('Error', error.message || 'No se pudo guardar el cambio.');
@@ -1757,10 +1822,12 @@ async function cargarHistorial() {
       lista.appendChild(div);
     });
 
-    fadeIn('.historial-card', { stagger: 0.05 });
+    if (primeraCarga) fadeIn('.historial-card', { stagger: 0.05 });
 
   } catch (error) {
+    if (peticion !== historialPeticion) return;
     console.error('Error cargando historial:', error);
+    historialMostrado = null;
     lista.innerHTML = '<p class="estado-vacio">Error al cargar el historial.</p>';
   }
 }
@@ -1796,6 +1863,7 @@ document.getElementById('btn-agregar-usuario').addEventListener('click', async (
       body: JSON.stringify({ nombre, correo, rol, titulo }),
     });
     await mostrarAlerta('Usuario agregado', 'Se envió la invitación por correo al nuevo usuario.');
+    invalidarApi('/api/usuarios');
     await cargarPanelAdmin();
   } catch (error) {
     await mostrarAlerta('Error', error.message || 'No se pudo agregar el usuario.');
@@ -1823,11 +1891,24 @@ async function cargarPanelAdmin() {
   const thAcciones = document.getElementById('th-acciones');
   if (thAcciones) thAcciones.style.display = esAdmin ? '' : 'none';
 
+  const peticion = ++adminPeticion;
+  const primeraCarga = adminMostrado === null;
+  if (primeraCarga) {
+    document.getElementById('stat-usuarios-activos').textContent = '—';
+    document.getElementById('stat-consultas-hoy').textContent = '—';
+    document.getElementById('diagnosticos-dia-container').innerHTML = '<p class="text-body-md text-on-surface-variant" style="padding:20px 0; text-align:center;">Cargando...</p>';
+  }
+
   try {
     const [usuarios, consultas] = await Promise.all([
-      apiFetch('/api/usuarios'),
-      apiFetch('/api/consultas'),
+      apiGet('/api/usuarios'),
+      apiGet('/api/consultas'),
     ]);
+    if (peticion !== adminPeticion) return;
+
+    const firma = JSON.stringify([usuarios, consultas]);
+    if (firma === adminMostrado) return;
+    adminMostrado = firma;
 
     document.getElementById('stat-usuarios-activos').textContent = esAdmin
       ? usuarios.filter(u => u.activo).length
@@ -1857,7 +1938,7 @@ async function cargarPanelAdmin() {
           `).join('')}
         </div>
       `;
-      fadeIn('.diagnostico-dia-card', { stagger: 0.05 });
+      if (primeraCarga) fadeIn('.diagnostico-dia-card', { stagger: 0.05 });
     }
 
     const tbody = document.getElementById('tabla-usuarios-body');
@@ -1897,7 +1978,7 @@ async function cargarPanelAdmin() {
       tbody.appendChild(tr);
     });
 
-    fadeIn('#tabla-usuarios-body tr', { y: 6, stagger: 0.04, duration: 0.3 });
+    if (primeraCarga) fadeIn('#tabla-usuarios-body tr', { y: 6, stagger: 0.04, duration: 0.3 });
 
     if (esAdmin) {
       tbody.querySelectorAll('.btn-toggle').forEach(btn => {
@@ -1908,6 +1989,7 @@ async function cargarPanelAdmin() {
               method: 'PATCH',
               body: JSON.stringify({ activo: !activoActual }),
             });
+            invalidarApi('/api/usuarios');
             await cargarPanelAdmin();
           } catch (error) {
             await mostrarAlerta('Error', error.message || 'No se pudo actualizar el usuario.');
@@ -1922,6 +2004,7 @@ async function cargarPanelAdmin() {
               method: 'PATCH',
               body: JSON.stringify({ titulo: select.value || null }),
             });
+            invalidarApi('/api/usuarios');
             await cargarPanelAdmin();
           } catch (error) {
             await mostrarAlerta('Error', error.message || 'No se pudo guardar el título.');
@@ -1959,6 +2042,7 @@ async function cargarPanelAdmin() {
           if (!confirmado) return;
           try {
             await apiFetch(`/api/usuarios/${btn.dataset.id}`, { method: 'DELETE' });
+            invalidarApi('/api/usuarios');
             await cargarPanelAdmin();
           } catch (error) {
             await mostrarAlerta('No se pudo eliminar', error.message || 'No se pudo eliminar el usuario.');
@@ -1968,6 +2052,9 @@ async function cargarPanelAdmin() {
     }
 
   } catch (error) {
+    if (peticion !== adminPeticion) return;
     console.error('Error cargando panel admin:', error);
+    adminMostrado = null;
+    document.getElementById('diagnosticos-dia-container').innerHTML = '<p class="text-body-md text-on-surface-variant" style="padding:20px 0; text-align:center;">No se pudo cargar el panel.</p>';
   }
 }

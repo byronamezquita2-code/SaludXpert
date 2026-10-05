@@ -456,3 +456,21 @@ test('médicos y enfermería no necesitan verificación en dos pasos', async () 
   assert.equal(res.status, 200);
   assert.equal(res.body.mfa_requerida, false);
 });
+
+const authCon = (claims) => ['Authorization', `Bearer x.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.firma`];
+
+test('el perfil pedido en paralelo se usa cuando el token es del mismo usuario', async () => {
+  const app = crearApp({ tables: { usuarios: [usuario({ nombre: 'Ana' }), usuario({ nombre: 'Segunda consulta' })] } });
+  const res = await request(app).get('/api/usuarios/me').set(...authCon({ sub: 'auth-1', aal: 'aal1' }));
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.nombre, 'Ana');
+});
+
+test('si el sub del token no coincide con Supabase, el perfil se vuelve a buscar', async () => {
+  const app = crearApp({ tables: { usuarios: [usuario({ nombre: 'Intruso' }), usuario({ nombre: 'Ana' })] } });
+  const res = await request(app).get('/api/usuarios/me').set(...authCon({ sub: 'auth-falso', aal: 'aal1' }));
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.nombre, 'Ana');
+});
